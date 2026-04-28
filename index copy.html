@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>POS - Bootstrap</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        :root {
+            --bg: #f4f6fa;
+            --card: #ffffff;
+            --line: #dfe5ee;
+            --text: #42566f;
+            --muted: #95a1b2;
+            --primary: #5aa6d8;
+            --primary-dark: #4a98cb;
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            font-family: Arial, Helvetica, sans-serif;
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        .topbar {
+            height: 62px;
+            background: #fff;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .page-shell {
+            padding: 10px 8px 14px;
+        }
+
+        .page-card {
+            border: 1px solid var(--line);
+            background: var(--card);
+            border-radius: 0;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #56677d;
+        }
+
+        .label-required::after {
+            content: " *";
+            color: #e56b6b;
+            font-weight: 700;
+        }
+
+        .form-label {
+            font-weight: 700;
+            font-size: 14px;
+            color: #596a80;
+            margin-bottom: 4px;
+        }
+
+        .form-control,
+        .form-select {
+            min-height: 40px;
+            border-color: #d8e0ea;
+            color: #43566f;
+            box-shadow: none !important;
+        }
+
+        textarea.form-control {
+            min-height: 58px;
+            resize: vertical;
+        }
+
+        .input-time {
+            position: relative;
+        }
+
+        .input-time .time-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #3c4758;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        .btn-primary-soft {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary-soft:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            color: #fff;
+        }
+
+        .search-box {
+            border: 1px solid var(--line);
+            background: #fff;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+        }
+
+        .grid-gap {
+            --bs-gutter-x: 14px;
+            --bs-gutter-y: 12px;
+        }
+
+        .table-panel {
+            border: 1px solid var(--line);
+            background: #fff;
+            margin-bottom: 12px;
+        }
+
+        .table-panel-title {
+            font-size: 15px;
+            font-weight: 700;
+            padding: 8px 0 4px;
+            color: #56677d;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .circle-icon-btn {
+            width: 22px;
+            height: 22px;
+            border: none;
+            background: transparent;
+            color: #2f2f2f;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .table-like {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .table-like th,
+        .table-like td {
+            border: 1px solid #d6deea;
+            padding: 0;
+            vertical-align: middle;
+            background: #fff;
+        }
+
+        .table-like th {
+            background: var(--primary);
+            color: #fff;
+            font-weight: 700;
+            font-size: 14px;
+            padding: 8px 10px;
+            text-align: center;
+        }
+
+        .table-like td input,
+        .table-like td textarea,
+        .table-like td select {
+            width: 100%;
+            border: none;
+            outline: none;
+            min-height: 70px;
+            padding: 10px 12px;
+            color: #5a677a;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .table-like td textarea {
+            resize: vertical;
+        }
+
+        .table-like .qty-input,
+        .table-like .unit-price-input,
+        .table-like .discount-input {
+            min-height: 70px;
+        }
+
+        .table-like .plain-cell {
+            padding: 10px 12px;
+            color: #56677d;
+            min-height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            font-weight: 700;
+        }
+
+        .table-like .action-cell {
+            width: 46px;
+            text-align: center;
+        }
+
+        .summary-label {
+            text-align: center;
+            font-weight: 400;
+            color: #5d6d84;
+            padding: 6px 10px;
+            background: #fff;
+        }
+
+        .summary-value {
+            padding: 6px 12px;
+            font-weight: 700;
+            color: #4e5d73;
+            background: #fff;
+        }
+
+        .payment-table td input,
+        .payment-table td textarea,
+        .payment-table td select {
+            min-height: 68px;
+        }
+
+        .payment-table .grand-label {
+            text-align: center;
+            font-weight: 400;
+            color: #5d6d84;
+            padding: 6px 10px;
+        }
+
+        .payment-table .grand-value {
+            font-weight: 700;
+            padding: 6px 12px;
+        }
+
+        .flag-badge {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #f2f4f8;
+            border: 1px solid var(--line);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #efb47f, #ea6b6b);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+        }
+
+        .footer-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 6px;
+        }
+
+        .create-btn {
+            min-width: 126px;
+            height: 36px;
+            font-weight: 700;
+        }
+
+        .summary-input {
+            width: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            text-align: right;
+            font-weight: 700;
+            color: #4e5d73;
+            padding: 6px 0;
+        }
+
+        @media (max-width: 1199.98px) {
+            .table-like {
+                min-width: 860px;
+            }
+
+            .table-scroll {
+                overflow-x: auto;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .topbar {
+                height: auto;
+                padding-top: 8px;
+                padding-bottom: 8px;
+            }
+
+            .footer-actions {
+                justify-content: stretch;
+            }
+
+            .create-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="topbar d-flex align-items-center justify-content-between px-3">
+        <div class="d-flex align-items-center gap-3">
+            <button class="btn btn-light border-0 shadow-none">
+                <i class="fa-solid fa-bars fs-4 text-secondary"></i>
+            </button>
+            <h4 class="mb-0 fw-bold">POS</h4>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="flag-badge">🇰🇭</span>
+            <span class="flag-badge">🇬🇧</span>
+            <div class="d-flex align-items-center gap-2 ms-2 fw-bold text-secondary">
+                <span class="d-none d-md-inline">SUPER ADMIN</span>
+                <span class="avatar"><i class="fa-solid fa-user"></i></span>
+                <i class="fa-solid fa-angle-down"></i>
+            </div>
+        </div>
+    </header>
+
+    <div class="page-shell">
+        <div class="container-fluid page-card p-3">
+            <div class="row grid-gap">
+                <div class="col-12 col-xl-5">
+                    <div class="search-box">
+                        <div class="section-title">Search Customer</div>
+                        <div class="row g-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="Enter phone number">
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-primary-soft px-4 h-100">Search</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Branch</label>
+                            <input type="text" class="form-control" placeholder="...">
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Customer Type</label>
+                            <select class="form-select">
+                                <option selected>General</option>
+                                <option>VIP</option>
+                                <option>Wholesale</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" placeholder="Enter name">
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Phone</label>
+                            <input type="text" class="form-control" placeholder="Enter phone number">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label label-required">Address</label>
+                            <textarea class="form-control" placeholder="Enter address"></textarea>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">Delivery Fee</label>
+                            <input type="number" class="form-control" id="delivery_fee_field" value="0" min="0" step="0.01" placeholder="Enter delivery fee">
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Delivery Date</label>
+                            <input type="date" class="form-control">
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Delivery Time</label>
+                            <div class="input-time">
+                                <input type="time" class="form-control">
+                                <span class="time-icon"><i class="fa-regular fa-clock"></i></span>
+                            </div>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Chef Group</label>
+                            <input type="text" class="form-control" placeholder="...">
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Order Source</label>
+                            <select class="form-select">
+                                <option selected>Select order source</option>
+                                <option>Facebook</option>
+                                <option>Telegram</option>
+                                <option>Walk In</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label label-required">Customer category</label>
+                            <select class="form-select">
+                                <option selected>New Customer</option>
+                                <option>Old Customer</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <button class="btn btn-primary-soft w-100 mt-md-4">Select on map</button>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label">latitude &amp; longitude</label>
+                            <input type="text" class="form-control" placeholder="Enter latitude & longitude">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">ExtraInfo</label>
+                            <input type="text" class="form-control" placeholder="Enter extraInfo">
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Noted</label>
+                            <textarea class="form-control" placeholder="Enter noted"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-xl-7">
+                    <div class="table-panel">
+                        <div class="table-panel-title">
+                            <span>Item</span>
+                            <button class="circle-icon-btn" type="button" id="addItemBtn" aria-label="Add item">
+                                <i class="fa-regular fa-circle-plus"></i>
+                            </button>
+                        </div>
+
+                        <div class="table-scroll">
+                            <table class="table-like">
+                                <colgroup>
+                                    <col style="width: 15%;">
+                                    <col style="width: 25%;">
+                                    <col style="width: 10%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 5%;">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Description</th>
+                                        <th>Quantity</th>
+                                        <th>Unit Price</th>
+                                        <th>Discount(%)</th>
+                                        <th>Total Price</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemTableBody">
+                                    <tr class="item-row">
+                                        <td><input type="text" class="item-input" placeholder="Search product"></td>
+                                        <td><textarea class="desc-input" placeholder="Enter description"></textarea></td>
+                                        <td><input type="number" class="qty-input" value="1" min="1" step="1"></td>
+                                        <td><input type="number" class="unit-price-input" value="0" min="0" step="0.01" placeholder="Enter unit price"></td>
+                                        <td><input type="number" class="discount-input" value="0" min="0" step="0.01"></td>
+                                        <td><div class="plain-cell row-total">0.00</div></td>
+                                        <td class="action-cell">
+                                            <button class="circle-icon-btn remove-item-btn" type="button" aria-label="Remove item">
+                                                <i class="fa-regular fa-circle-minus"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td colspan="4" rowspan="4" style="background:#fff;"></td>
+                                        <td class="summary-label">Total</td>
+                                        <td class="summary-value text-end" id="total_amount">0.00</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="summary-label">Discount( % )</td>
+                                        <td class="summary-value">
+                                            <input type="number" id="order_discount" class="summary-input" value="0" min="0" step="0.01">
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="summary-label">Delivery Fee</td>
+                                        <td class="summary-value">
+                                            <input type="number" id="delivery_fee" class="summary-input" value="0" min="0" step="0.01">
+                                        </td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="summary-label fw-bold">Grand Total</td>
+                                        <td class="summary-value text-end fw-bold" id="grand_total">0.00</td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="table-panel">
+                        <div class="table-panel-title">
+                            <span>Payment</span>
+                            <button class="circle-icon-btn" type="button" id="addPaymentBtn" aria-label="Add payment">
+                                <i class="fa-regular fa-circle-plus"></i>
+                            </button>
+                        </div>
+
+                        <div class="table-scroll">
+                            <table class="table-like payment-table">
+                                <colgroup>
+                                    <col style="width: 35%;">
+                                    <col style="width: 45%;">
+                                    <col style="width: 15%;">
+                                    <col style="width: 5%;">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>Payment method</th>
+                                        <th>Remark</th>
+                                        <th>Amount</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="paymentTableBody">
+                                    <tr class="payment-row">
+                                        <td>
+                                            <select class="payment-method">
+                                                <option selected>Select payment method</option>
+                                                <option>Cash</option>
+                                                <option>ABA</option>
+                                                <option>Card</option>
+                                            </select>
+                                        </td>
+                                        <td><textarea class="payment-remark" placeholder="Enter remark"></textarea></td>
+                                        <td><input type="number" class="payment-amount" value="0" min="0" step="0.01" placeholder="Enter amount"></td>
+                                        <td class="action-cell">
+                                            <button class="circle-icon-btn remove-payment-btn" type="button" aria-label="Remove payment">
+                                                <i class="fa-regular fa-circle-minus"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2" class="grand-label">Grand Total</td>
+                                        <td class="grand-value text-end" id="payment_grand_total">0.00</td>
+                                        <td></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="footer-actions">
+                        <button class="btn btn-primary-soft create-btn">
+                            <i class="fa-regular fa-floppy-disk me-1"></i>
+                            Create Order
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <template id="itemRowTemplate">
+        <tr class="item-row">
+            <td><input type="text" class="item-input" placeholder="Search product"></td>
+            <td><textarea class="desc-input" placeholder="Enter description"></textarea></td>
+            <td><input type="number" class="qty-input" value="1" min="1" step="1"></td>
+            <td><input type="number" class="unit-price-input" value="0" min="0" step="0.01" placeholder="Enter unit price"></td>
+            <td><input type="number" class="discount-input" value="0" min="0" step="0.01"></td>
+            <td><div class="plain-cell row-total">0.00</div></td>
+            <td class="action-cell">
+                <button class="circle-icon-btn remove-item-btn" type="button" aria-label="Remove item">
+                    <i class="fa-regular fa-circle-minus"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <template id="paymentRowTemplate">
+        <tr class="payment-row">
+            <td>
+                <select class="payment-method">
+                    <option selected>Select payment method</option>
+                    <option>Cash</option>
+                    <option>ABA</option>
+                    <option>Card</option>
+                </select>
+            </td>
+            <td><textarea class="payment-remark" placeholder="Enter remark"></textarea></td>
+            <td><input type="number" class="payment-amount" value="0" min="0" step="0.01" placeholder="Enter amount"></td>
+            <td class="action-cell">
+                <button class="circle-icon-btn remove-payment-btn" type="button" aria-label="Remove payment">
+                    <i class="fa-regular fa-circle-minus"></i>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const itemTableBody = document.getElementById('itemTableBody');
+        const paymentTableBody = document.getElementById('paymentTableBody');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const addPaymentBtn = document.getElementById('addPaymentBtn');
+
+        const totalAmountEl = document.getElementById('total_amount');
+        const orderDiscountEl = document.getElementById('order_discount');
+        const deliveryFeeEl = document.getElementById('delivery_fee');
+        const deliveryFeeFieldEl = document.getElementById('delivery_fee_field');
+        const grandTotalEl = document.getElementById('grand_total');
+        const paymentGrandTotalEl = document.getElementById('payment_grand_total');
+
+        function formatNumber(value) {
+            return parseFloat(value || 0).toFixed(2);
+        }
+
+        function calculateRow(row) {
+            const qty = parseFloat(row.querySelector('.qty-input')?.value) || 0;
+            const unitPrice = parseFloat(row.querySelector('.unit-price-input')?.value) || 0;
+            const discountPercent = parseFloat(row.querySelector('.discount-input')?.value) || 0;
+
+            const subtotal = qty * unitPrice;
+            const discountAmount = subtotal * discountPercent / 100;
+            const rowTotal = subtotal - discountAmount;
+
+            row.querySelector('.row-total').textContent = formatNumber(rowTotal);
+            return rowTotal;
+        }
+
+        function calculateItems() {
+            let total = 0;
+            document.querySelectorAll('.item-row').forEach(row => {
+                total += calculateRow(row);
+            });
+
+            totalAmountEl.textContent = formatNumber(total);
+
+            const orderDiscountPercent = parseFloat(orderDiscountEl.value) || 0;
+            const deliveryFee = parseFloat(deliveryFeeEl.value) || 0;
+
+            const orderDiscountAmount = total * orderDiscountPercent / 100;
+            const grandTotal = total - orderDiscountAmount + deliveryFee;
+
+            grandTotalEl.textContent = formatNumber(grandTotal);
+            paymentGrandTotalEl.textContent = formatNumber(grandTotal);
+
+            calculatePayments();
+        }
+
+        function calculatePayments() {
+            let paymentTotal = 0;
+            document.querySelectorAll('.payment-amount').forEach(input => {
+                paymentTotal += parseFloat(input.value) || 0;
+            });
+
+            console.log('Payment Total:', formatNumber(paymentTotal));
+        }
+
+        function addItemRow() {
+            const template = document.getElementById('itemRowTemplate');
+            const clone = template.content.cloneNode(true);
+            const summaryRows = itemTableBody.querySelectorAll('tr');
+            itemTableBody.insertBefore(clone, summaryRows[summaryRows.length - 4]);
+            calculateItems();
+        }
+
+        function addPaymentRow() {
+            const template = document.getElementById('paymentRowTemplate');
+            const clone = template.content.cloneNode(true);
+            const summaryRow = paymentTableBody.querySelector('tr:last-child');
+            paymentTableBody.insertBefore(clone, summaryRow);
+            calculatePayments();
+        }
+
+        addItemBtn.addEventListener('click', addItemRow);
+        addPaymentBtn.addEventListener('click', addPaymentRow);
+
+        document.addEventListener('input', function (e) {
+            if (
+                e.target.classList.contains('qty-input') ||
+                e.target.classList.contains('unit-price-input') ||
+                e.target.classList.contains('discount-input') ||
+                e.target.id === 'order_discount' ||
+                e.target.id === 'delivery_fee' ||
+                e.target.classList.contains('payment-amount')
+            ) {
+                calculateItems();
+            }
+
+            if (e.target === deliveryFeeFieldEl) {
+                deliveryFeeEl.value = deliveryFeeFieldEl.value || 0;
+                calculateItems();
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            const removeItemBtn = e.target.closest('.remove-item-btn');
+            const removePaymentBtn = e.target.closest('.remove-payment-btn');
+
+            if (removeItemBtn) {
+                const rows = document.querySelectorAll('.item-row');
+                if (rows.length > 1) {
+                    removeItemBtn.closest('.item-row').remove();
+                    calculateItems();
+                }
+            }
+
+            if (removePaymentBtn) {
+                const rows = document.querySelectorAll('.payment-row');
+                if (rows.length > 1) {
+                    removePaymentBtn.closest('.payment-row').remove();
+                    calculatePayments();
+                }
+            }
+        });
+
+        deliveryFeeEl.addEventListener('input', function () {
+            deliveryFeeFieldEl.value = deliveryFeeEl.value || 0;
+            calculateItems();
+        });
+
+        deliveryFeeFieldEl.addEventListener('input', function () {
+            deliveryFeeEl.value = deliveryFeeFieldEl.value || 0;
+            calculateItems();
+        });
+
+        calculateItems();
+    </script>
+</body>
+</html>
