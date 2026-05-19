@@ -10,48 +10,52 @@ class DashboardController extends Controller
     public function index(): View
     {
         $orderCounts = DB::table('orders')
-            ->select('order_status', DB::raw('COUNT(*) as total'))
-            ->groupBy('order_status')
-            ->pluck('total', 'order_status');
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
 
         $allOrders = (int) DB::table('orders')->count();
-        $pendingOrders = (int) ($orderCounts['pending'] ?? 0);
-        $confirmedOrders = (int) ($orderCounts['confirmed'] ?? 0);
-        $rejectedOrders = (int) ($orderCounts['rejected'] ?? 0);
-        $cancelledOrders = (int) ($orderCounts['cancelled'] ?? 0);
-        $cookingStartedOrders = (int) ($orderCounts['cooking_started'] ?? 0);
-        $cookingAlmostFinishedOrders = (int) ($orderCounts['cooking_almost_finished'] ?? 0);
-        $foodReadyOrders = (int) ($orderCounts['food_ready'] ?? 0);
-        $deliveryStartedOrders = (int) ($orderCounts['delivery_started'] ?? 0);
-        $finishedOrders = (int) ($orderCounts['finished'] ?? 0);
+        $pendingOrders = (int) ($orderCounts['PENDING'] ?? 0);
+        $confirmedOrders = (int) ($orderCounts['CONFIRMED'] ?? 0);
+        $rejectedOrders = (int) ($orderCounts['REJECTED'] ?? 0);
+        $cancelledOrders = (int) ($orderCounts['CANCELLED'] ?? 0);
+        $cookingStartedOrders = (int) ($orderCounts['COOKING_STARTED'] ?? 0);
+        $cookingAlmostFinishedOrders = (int) ($orderCounts['COOKING_ALMOST_FINISHED'] ?? 0);
+        $foodReadyOrders = (int) ($orderCounts['FOOD_READY'] ?? 0);
+        $deliveryStartedOrders = (int) ($orderCounts['DELIVERY_STARTED'] ?? 0);
+        $finishedOrders = (int) ($orderCounts['FINISHED'] ?? 0);
 
         $userCounts = DB::table('users')
             ->select('role', DB::raw('COUNT(*) as total'))
-            ->where('status', 'active')
+            ->where('status', 'ACTIVE')
             ->groupBy('role')
             ->pluck('total', 'role');
 
-        $userAdmin = (int) ($userCounts['admin'] ?? $userCounts['user_admin'] ?? 0);
-        $userDriver = (int) ($userCounts['driver'] ?? $userCounts['user_driver'] ?? 0);
-        $posAdmin = (int) ($userCounts['pos_admin'] ?? $userCounts['cashier'] ?? $userCounts['pos'] ?? 0);
-
-        $userCustomer = (int) DB::table('customers')->count();
+        $userAdmin = (int) ($userCounts['admin'] ?? 0);
+        $userDriver = (int) ($userCounts['driver'] ?? 0);
+        $posAdmin = (int) ($userCounts['cashier'] ?? $userCounts['pos_admin'] ?? $userCounts['pos'] ?? 0);
+        $userCustomer = (int) ($userCounts['customer'] ?? 0);
 
         $ordersBySource = DB::table('orders')
-            ->select(
-                DB::raw("COALESCE(order_source, 'Unknown') as order_source"),
-                DB::raw('COUNT(*) as total')
-            )
-            ->groupBy('order_source')
+            ->selectRaw("COALESCE(order_resource_from, order_from, 'Unknown') as source")
+            ->selectRaw('COUNT(*) as total')
+            ->groupByRaw("COALESCE(order_resource_from, order_from, 'Unknown')")
             ->orderByDesc('total')
             ->get();
 
-        $paidAmount = (float) DB::table('payments')->sum('amount');
+        $paidAmount = (float) DB::table('order_payments')
+            ->whereNull('deleted_at')
+            ->where(function ($query) {
+                $query->where('status', 'PAID')
+                    ->orWhere('status', 'SUCCESS')
+                    ->orWhereNull('status');
+            })
+            ->sum('amount');
 
         $monthlyRevenue = DB::table('invoices')
             ->selectRaw('MONTH(invoice_date) as month_num')
-            ->selectRaw('SUM(grand_total) as grand_total')
-            ->selectRaw('SUM(subtotal - discount) as after_discount')
+            ->selectRaw('SUM(grand_total_amount) as grand_total')
+            ->selectRaw('SUM(sub_total_amount - COALESCE(discount_amount, 0)) as after_discount')
             ->whereNotNull('invoice_date')
             ->groupByRaw('MONTH(invoice_date)')
             ->orderByRaw('MONTH(invoice_date)')
@@ -85,7 +89,7 @@ class DashboardController extends Controller
             $grandTotalData[] = (float) ($row->grand_total ?? 0);
         }
 
-        return view('dashboard', compact(
+        return view('dashboard.dashboard', compact(
             'allOrders',
             'pendingOrders',
             'confirmedOrders',

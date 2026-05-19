@@ -65,25 +65,25 @@
                 </div>
 
                 <div class="submenu-inner {{ in_array($currentPage, $customerPages) ? 'open' : '' }}">
-                    <a href="{{ url('/customers/categories') }}" class="submenu-item {{ $currentPage == 'customers_categories' ? 'active' : '' }}">
+                    <a href="{{ url('/item_management/categories') }}" class="submenu-item {{ $currentPage == 'customers_categories' ? 'active' : '' }}">
                         <span class="dot"></span><span>Categories</span>
                     </a>
-                    <a href="{{ url('/customers/products') }}" class="submenu-item {{ $currentPage == 'customers_products' ? 'active' : '' }}">
+                    <a href="{{ url('/item_management/products') }}" class="submenu-item {{ $currentPage == 'customers_products' ? 'active' : '' }}">
                         <span class="dot"></span><span>All Products</span>
                     </a>
-                    <a href="{{ url('/customers/variants') }}" class="submenu-item {{ $currentPage == 'customers_variants' ? 'active' : '' }}">
+                    <a href="{{ url('/item_management/variants') }}" class="submenu-item {{ $currentPage == 'customers_variants' ? 'active' : '' }}">
                         <span class="dot"></span><span>Variants</span>
                     </a>
-                    <a href="{{ url('/customers/set-menu') }}" class="submenu-item {{ $currentPage == 'customers_set_menu' ? 'active' : '' }}">
+                    <a href="{{ url('/item_management/set-menu') }}" class="submenu-item {{ $currentPage == 'customers_set_menu' ? 'active' : '' }}">
                         <span class="dot"></span><span>Set Menu</span>
                     </a>
-                    <a href="{{ url('/customers/combo-set') }}" class="submenu-item {{ $currentPage == 'customers_combo_set' ? 'active' : '' }}">
+                    <a href="{{ url('/item_management/combo-set') }}" class="submenu-item {{ $currentPage == 'customers_combo_set' ? 'active' : '' }}">
                         <span class="dot"></span><span>Combo Set</span>
                     </a>
-                    <a href="{{ url('/customers/options') }}" class="submenu-item {{ $currentPage == 'customers_options' ? 'active' : '' }}">
+                    <a href="{{ url('/item_management/options') }}" class="submenu-item {{ $currentPage == 'customers_options' ? 'active' : '' }}">
                         <span class="dot"></span><span>Options</span>
                     </a>
-                    <a href="{{ url('/customers/discounts') }}" class="submenu-item {{ $currentPage == 'customers_discounts' ? 'active' : '' }}">
+                    <a href="{{ url('/item_management/discounts') }}" class="submenu-item {{ $currentPage == 'customers_discounts' ? 'active' : '' }}">
                         <span class="dot"></span><span>Discounts</span>
                     </a>
                 </div>
@@ -155,11 +155,13 @@
             <i class="fa-solid fa-angle-down right"></i>
         </a>
 
-        <a href="{{ url('/logout') }}" class="menu-item">
-            <i class="fa-solid fa-arrow-right-from-bracket" style="width:20px; text-align:center;"></i>
-            <span>Sign Out</span>
-        </a>
-
+        <form action="{{ route('logout') }}" method="POST" style="margin:0;">
+    @csrf
+    <button type="submit" class="menu-item" style="width:100%; background:none; border:none; text-align:left;">
+        <i class="fa-solid fa-arrow-right-from-bracket" style="width:20px;"></i>
+        <span>Sign Out</span>
+    </button>
+</form>
     </div>
 </aside>
 

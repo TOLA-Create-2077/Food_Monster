@@ -2,23 +2,27 @@
 
 namespace App\Models;
 
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Notifications\Notifiable;
 
-$user = User::where('username', 'admin')->first();
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
 
-if (!$user) {
-    $user = new User();
-    $user->name = 'Admin';
-    $user->username = 'admin';
-    $user->email = 'admin@example.com';
-    $user->phone = '000000000';
-    $user->role = 'admin';
-    $user->branch_id = 1;
+    protected $table = 'users';
+
+    protected $fillable = [
+        'name',
+        'email',
+        'phone',
+        'role',
+        'status',
+        'password',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 }
-
-$user->status = 'active';
-$user->password = Hash::make('password123');
-$user->save();
-
-$user;

@@ -305,8 +305,11 @@
                 </tbody>
             </table>
         </div>
+        
     </div>
+    
 </main>
+
 
 @include('layout.footer')
 

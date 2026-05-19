@@ -1,6 +1,6 @@
 @php
-    $pageTitle = "Dashboard";
-    $currentPage = "dashboard";
+    $pageTitle = 'Dashboard';
+    $currentPage = 'dashboard';
 @endphp
 
 @include('layout.header')
@@ -8,8 +8,8 @@
 
 <main class="main">
     <div class="filters">
-        <input class="date-input" type="text" value="{{ now()->format('d/m/Y') }}" />
-        <input class="date-input" type="text" value="{{ now()->format('d/m/Y') }}" />
+        <input class="date-input" type="text" value="{{ now()->format('d/m/Y') }}">
+        <input class="date-input" type="text" value="{{ now()->format('d/m/Y') }}">
         <button class="icon-btn search" aria-label="Search">
             <i class="fa-solid fa-magnifying-glass"></i>
         </button>
@@ -207,15 +207,28 @@
         });
     }
 
-    buildHorizontalBarChart("ordersStatusChart", "Orders", {{ $allOrders }}, "#5f92e6", {{ max($allOrders + 10, 10) }});
-    buildHorizontalBarChart("paymentsChart", "Paid", {{ $paidAmount }}, "#58b782", {{ max($paidAmount + 100, 100) }});
+    buildHorizontalBarChart(
+        "ordersStatusChart",
+        "Orders",
+        {{ $allOrders }},
+        "#5f92e6",
+        {{ max($allOrders + 10, 10) }}
+    );
+
+    buildHorizontalBarChart(
+        "paymentsChart",
+        "Paid",
+        {{ $paidAmount }},
+        "#58b782",
+        {{ max($paidAmount + 100, 100) }}
+    );
 
     new Chart(document.getElementById("ordersSourceChart"), {
         type: "bar",
         data: {
-            labels: {!! json_encode($ordersBySource->pluck('order_source')->toArray()) !!},
+            labels: {!! json_encode($ordersBySource->pluck('source')->values()) !!},
             datasets: [{
-                data: {!! json_encode($ordersBySource->pluck('total')->toArray()) !!},
+                data: {!! json_encode($ordersBySource->pluck('total')->values()) !!},
                 backgroundColor: "#62b2da",
                 borderRadius: 0,
                 borderSkipped: false
@@ -298,4 +311,4 @@
     });
 </script>
 
-@include('layout.footer') i need all this show from my database please  this is from my database structure that you give me   can it do??
+@include('layout.footer')
