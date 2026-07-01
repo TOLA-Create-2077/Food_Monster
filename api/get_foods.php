@@ -1,16 +1,13 @@
 <?php
-// កំណត់ Headers ឱ្យបានត្រឹមត្រូវ (លុបផ្នែកជាន់គ្នាចេញ)
+// កំណត់ Headers ឱ្យបានត្រឹមត្រូវសម្រាប់សាធារណៈ (Public)
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: GET, POST");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// ទាញយកការភ្ជាប់ទៅកាន់ Database ពី config.php (ឬ config_pdo.php ផ្អែកលើគម្រោងបង)
 require_once __DIR__ . '/config.php';
 
 try {
-    // ត្រូវប្រាកដថាអថេរភ្ជាប់ Database ឈ្មោះ $conn ឬ $pdo មានដំណើរការ
-    // ប្រសិនបើក្នុង config.php បងប្រើ $pdo សូមប្តូរកូដខាងក្រោមពី $conn ទៅ $pdo
     if (!isset($conn) && isset($pdo)) {
         $conn = $pdo;
     }
@@ -33,7 +30,6 @@ try {
 
     $data = [];
 
-    // 🛠️ ដំណោះស្រាយ៖ ការពារទាំងការប្រើប្រាស់ PDO និង MySQLi កុំឱ្យគាំងដាច់ខាត
     if ($conn instanceof PDO) {
         $stmt = $conn->query($sql);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -49,17 +45,28 @@ try {
     }
 
     foreach ($rows as $row) {
-        // ត្រួតពិនិត្យរូបភាព៖ បើនៅក្នុង item_variates គ្មានរូបភាព ត្រូវយករូបភាពដើមពី items
+        // 🛠️ ដំណោះស្រាយ៖ បំបែក (Decode) ទិន្នន័យ JSON ភាសាខ្មែរ/អង់គ្លេស ឱ្យទៅជាអក្សរធម្មតាសម្រាប់ Android App អានដាច់
+        $titleArr = json_decode($row['title'], true);
+        $title = isset($titleArr['km']) ? $titleArr['km'] : (isset($titleArr['en']) ? $titleArr['en'] : ($row['title'] ?? 'Unnamed Item'));
+
+        $descArr = json_decode($row['description'], true);
+        $description = isset($descArr['km']) ? $descArr['km'] : (isset($descArr['en']) ? $descArr['en'] : ($row['description'] ?? ''));
+
+        // 🛠️ ដំណោះស្រាយរូបភាព៖ បំពេញ Domain ឱ្យគ្រប់គ្រាន់ បើរូបភាពនោះជាឈ្មោះហ្វាយល៍ធម្មតា
         $image = "";
         if (!empty($row['variate_image'])) {
             $image = $row['variate_image'];
         } elseif (!empty($row['item_image'])) {
             $image = $row['item_image'];
-        } else {
-            $image = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600";
         }
 
-        // ត្រួតពិនិត្យតម្លៃលុយ៖ ប្រសិនបើទាញបានតម្លៃ 0 ឬ NULL ត្រូវផ្តល់តម្លៃបម្រុង
+        if (empty($image)) {
+            $image = "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600";
+        } elseif (!filter_var($image, FILTER_VALIDATE_URL)) {
+            // បើគ្មាន http/https ទេ គឺវាជាហ្វាយល៍ក្នុង DigitalOcean របស់បង
+            $image = "https://foodmonster-assets.sgp1.digitaloceanspaces.com/uploads/item/" . $image;
+        }
+
         $price = (float)($row['price'] ?? 0);
         if ($price == 0) {
             $price = 3.50;
@@ -67,8 +74,8 @@ try {
 
         $data[] = [
             'id' => (int)$row['id'],
-            'title' => $row['title'] ?? 'Unnamed Item',
-            'description' => $row['description'] ?? '',
+            'title' => $title, // ចេញជាអក្សរខ្មែរ ឬអង់គ្លេសស្អាតតែម្តង
+            'description' => $description,
             'image' => $image,
             'price' => $price,
             'type' => 'Fast Food',
