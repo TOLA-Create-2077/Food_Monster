@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL; // 🛠️ ថែមមួយជួរនេះដើម្បីគ្រប់គ្រង HTTPS
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
@@ -11,11 +12,28 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SetMenuController;
 use App\Http\Controllers\UserController;
 
+// 🛠️ ដំណោះស្រាយទី ១៖ បង្ខំឱ្យទាញយក CSS/JS តាម HTTPS (ដោះស្រាយរឿងបាត់ Style)
+if (env('APP_ENV') === 'production') {
+    URL::forceScheme('https');
+}
+
+// 🛠️ ដំណោះស្រាយទី ២៖ បើកផ្លូវឱ្យស្គាល់ហ្វាយល៍ PHP ធម្មតានៅក្នុង folder api/ ខាងក្រៅ (ដោះស្រាយរឿង API 404)
+Route::any('/api/{file}', function ($file) {
+    // ចាប់យកផ្លូវទៅកាន់ folder api/ ដែលនៅក្រៅបង្អស់
+    $filePath = base_path('api/' . $file); 
+    if (file_exists($filePath)) {
+        require $filePath;
+        exit;
+    }
+    abort(404);
+})->where('file', '.*');
+
+
+// --- ក្រៅពីនេះ គឺរក្សាកូដ Route ដើមរបស់បងទុកដដែល ---
 Route::get('/', function () {
     if (!Auth::check()) {
         return redirect()->route('login');
     }
-
     return redirect()->route('dashboard');
 });
 
@@ -28,7 +46,6 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
     Route::get('/pos', [POSController::class, 'index'])->name('pos.index');
     Route::post('/pos/store', [POSController::class, 'store'])->name('pos.store');
 
