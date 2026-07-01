@@ -23,7 +23,7 @@ set_exception_handler(function ($e) {
     exit();
 });
 
-// Credentials now come from config.php (env vars), not hardcoded here.
+// Credentials come from config.php
 require_once __DIR__ . '/config.php';
 
 $json_input = file_get_contents("php://input");
@@ -79,7 +79,6 @@ try {
     $customer_category   = $data['customer_category'] ?? $data['customerCategory'] ?? null;
     $user_id             = $data['user_id'] ?? $data['userId'] ?? 1;
 
-    // Define current time variables for tracking columns
     $created_at          = date('Y-m-d H:i:s');
     $updated_at          = date('Y-m-d H:i:s');
 
@@ -142,26 +141,29 @@ try {
         throw new Exception("SQL syntax planning error on items detail table: " . $conn->error);
     }
 
-    foreach ($items as $item) {
-        $product_variate_id = isset($item['product_variate_id']) ? (int)$item['product_variate_id'] : (isset($item['productVariateId']) ? (int)$item['productVariateId'] : null);
-        $description        = $item['description'] ?? 'Food item ordered';
-        $quantity           = (int)($item['quantity'] ?? 1);
-        $unit_price         = (double)($item['unit_price'] ?? $item['unitPrice'] ?? 0.0);
-        $item_discount      = (double)($item['discount_percent'] ?? $item['discountPercent'] ?? 0.0);
-        $item_sub_total     = (double)($item['sub_total'] ?? $item['subTotal'] ?? ($unit_price * $quantity));
-        $item_grand_total   = (double)($item['grand_total'] ?? $item['grandTotal'] ?? $item_sub_total);
-        $item_status        = $item['status'] ?? 'PENDING';
+    // 🛠️ FIXED: Bind parameters outside the loop using explicitly named variable containers
+    $detailStmt->bind_param(
+        "iisisdddsss",
+        $orderId, $p_variate_id, $p_desc, $p_qty,
+        $p_u_price, $p_discount, $p_sub, $p_grand, $p_status, $created_at, $updated_at
+    );
 
-        $detailStmt->bind_param(
-            "iisisdddsss",
-            $orderId, $product_variate_id, $description, $quantity,
-            $unit_price, $item_discount, $item_sub_total, $item_grand_total, $item_status, $created_at, $updated_at
-        );
+    foreach ($items as $item) {
+        // Update the variables that are bound to the statement
+        $p_variate_id = isset($item['product_variate_id']) ? (int)$item['product_variate_id'] : (isset($item['productVariateId']) ? (int)$item['productVariateId'] : null);
+        $p_desc       = $item['description'] ?? 'Food item ordered';
+        $p_qty        = (int)($item['quantity'] ?? 1);
+        $p_u_price    = (double)($item['unit_price'] ?? $item['unitPrice'] ?? 0.0);
+        $p_discount   = (double)($item['discount_percent'] ?? $item['discountPercent'] ?? 0.0);
+        $p_sub        = (double)($item['sub_total'] ?? $item['subTotal'] ?? ($p_u_price * $p_qty));
+        $p_grand      = (double)($item['grand_total'] ?? $item['grandTotal'] ?? $p_sub);
+        $p_status     = $item['status'] ?? 'PENDING';
 
         if (!$detailStmt->execute()) {
             throw new Exception("Failed saving entry item line: " . $detailStmt->error);
         }
     }
+    
     $detailStmt->close();
     $conn->commit();
 
@@ -173,7 +175,9 @@ try {
     ]);
 
 } catch (Exception $e) {
-    $conn->rollback();
+    if (isset($conn) && $conn->ping()) {
+        $conn->rollback();
+    }
     echo json_encode([
         "success" => false,
         "message" => "Database rollback triggered: " . $e->getMessage()
