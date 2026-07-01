@@ -8,35 +8,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once __DIR__ . '/config.php';
+// Disable config's automatic exit on failure by handling any early connection issues cleanly
+try {
+    @require_once __DIR__ . '/config.php';
+} catch (Throwable $t) {
+    // If config.php throws an error, catch it silently so we can use the fallback sample data below
+}
 
 try {
-    // Check connection variables
-    $db = $pdo ?? $conn;
-    if (!$db) {
-        throw new Exception("Database controller configuration missing.");
+    // 1. Check if a connection variable is safely established
+    $db = null;
+    if (isset($pdo) && $pdo instanceof PDO) {
+        $db = $pdo;
+    } elseif (isset($conn) && $conn instanceof mysqli) {
+        $db = $conn;
     }
 
-    // Check if table 'items' exists
     $tableExists = false;
-    if ($db instanceof PDO) {
-        try {
-            // Using a lightweight test query
-            $db->query("SELECT 1 FROM items LIMIT 1");
-            $tableExists = true;
-        } catch (Throwable $e) { 
-            // Catching Throwable handles both PDOException and structural Engine Errors
-            $tableExists = false;
+
+    // 2. Only look for the 'items' table if a valid database instance exists
+    if ($db) {
+        if ($db instanceof PDO) {
+            try {
+                $db->query("SELECT 1 FROM items LIMIT 1");
+                $tableExists = true;
+            } catch (Throwable $e) { 
+                $tableExists = false;
+            }
+        } else {
+            $check = $db->query("SHOW TABLES LIKE 'items'");
+            $tableExists = ($check && $check->num_rows > 0);
         }
-    } else {
-        $check = $db->query("SHOW TABLES LIKE 'items'");
-        $tableExists = ($check && $check->num_rows > 0);
     }
 
     $data = [];
 
-    // Case 1: If 'items' table exists, pull live data
-    if ($tableExists) {
+    // Case 1: If connection works AND 'items' table exists, pull live production data
+    if ($tableExists && $db) {
         $sql = "
             SELECT 
                 i.id,
@@ -83,12 +91,12 @@ try {
             ];
         }
     } 
-    // Case 2: Fallback sample mock data to prevent front-end crashes
+    // Case 2: Fallback sample mock data triggers if database is offline, empty, or missing tables
     else {
         $data = [
             [
                 'id' => 1,
-                'title' => 'Beef Burger (Sample Public)',
+                'title' => 'Beef Burger (Sample Public Fallback)',
                 'description' => 'Delicious juicy beef burger with cheese.',
                 'image' => 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600',
                 'price' => 4.50,
@@ -97,7 +105,7 @@ try {
             ],
             [
                 'id' => 2,
-                'title' => 'French Fries (Sample Public)',
+                'title' => 'French Fries (Sample Public Fallback)',
                 'description' => 'Crispy and hot golden french fries.',
                 'image' => 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600',
                 'price' => 2.50,
@@ -110,7 +118,6 @@ try {
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
 } catch (Throwable $e) {
-    // Keep 200 status code as requested to bypass strict network blockades
     http_response_code(200); 
     echo json_encode([
         "success" => false,
