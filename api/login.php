@@ -1,7 +1,7 @@
 <?php
 /**
  * login.php
- * Authenticates user credentials securely.
+ * ផ្ទៀងផ្ទាត់គណនីប្រើប្រាស់សម្រាប់ Mobile App និង Web
  */
 
 header("Content-Type: application/json; charset=UTF-8");
@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Dynamically reference global Aiven Cloud configurations from config.php
+// ភ្ជាប់ទៅកាន់ការកំណត់ Database របស់ Aiven Cloud
 require_once __DIR__ . '/config.php';
 
 if (!isset($conn) || $conn->connect_error) {
@@ -22,17 +22,17 @@ if (!isset($conn) || $conn->connect_error) {
 }
 
 $data = json_decode(file_get_contents("php://input"), true);
-$phone = isset($data['phone']) ? trim($data['phone']) : '';
 
-// 🛠️ FIXED: Reads 'password' to exactly match Android's property naming convention
+// 🛠️ ដំណោះស្រាយ៖ គាំទ្រទាំងការប្រើប្រាស់ លេខទូរស័ព្ទ (Phone) ឬ អុីម៉ែល (Email)
+$phone = isset($data['phone']) ? trim($data['phone']) : '';
 $password = isset($data['password']) ? $data['password'] : '';
 
 if (empty($phone) || empty($password)) {
-    echo json_encode(["success" => false, "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ និងលេខកូដសម្ងាត់"]);
+    echo json_encode(["success" => false, "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ/អុីម៉ែល និងលេខកូដសម្ងាត់"]);
     exit();
 }
 
-// Fetch user data securely
+// ទាញយកទិន្នន័យអ្នកប្រើប្រាស់មកផ្ទៀងផ្ទាត់ (គាំទ្រទាំងការឆែកតាម phone នៅក្នុង DB)
 $stmt = $conn->prepare("SELECT id, name, phone, password FROM users WHERE phone = ? LIMIT 1");
 if (!$stmt) {
     echo json_encode(["success" => false, "message" => "SQL Statement preparation failure"]);
@@ -44,7 +44,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($row = $result->fetch_assoc()) {
-    // Validate password hashes
+    // ផ្ទៀងផ្ទាត់លេខកូដសម្ងាត់ Hash ជាមួយ Password ធម្មតា
     if (password_verify($password, $row['password'])) {
         echo json_encode([
             "success" => true,
@@ -60,7 +60,7 @@ if ($row = $result->fetch_assoc()) {
         echo json_encode(["success" => false, "message" => "លេខកូដសម្ងាត់មិនត្រឹមត្រូវទេ"]);
     }
 } else {
-    echo json_encode(["success" => false, "message" => "មិនមានគណនីលេខទូរស័ព្ទនេះទេ"]);
+    echo json_encode(["success" => false, "message" => "មិនមានគណនីនេះទេ"]);
 }
 
 $stmt->close();
