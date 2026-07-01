@@ -1,81 +1,76 @@
 <?php
 /**
  * config.php
- *
- * Central database connection (Supports both PDO and mysqli)
+ * Central database connection for Aiven Cloud (Supports both PDO and mysqli with SSL)
  */
 
-// បើកការបង្ហាញ Error សម្រាប់ការដោះស្រាយលើ Server
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
+ini_set('display_errors', '0'); 
 error_reporting(E_ALL);
 
 if (!function_exists('load_env_direct')) {
     function load_env_direct($path) {
-        if (!file_exists($path)) {
-            return;
-        }
+        if (!file_exists($path)) return;
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
             $line = trim($line);
-            if ($line === '' || str_starts_with($line, '#')) {
-                continue;
-            }
-            if (str_contains($line, '=')) {
+            if ($line === '' || $line[0] === '#') continue;
+            
+            if (strpos($line, '=') !== false) {
                 $parts = explode('=', $line, 2);
-                $key = isset($parts[0]) ? trim($parts[0]) : '';
-                $value = isset($parts[1]) ? trim($parts[1]) : '';
-                $value = trim($value, " \t\n\r\0\x0B\"'");
-                if ($key !== '') {
-                    putenv("$key=$value");
-                    $_ENV[$key] = $value;
-                }
+                $key = trim($parts[0]);
+                $value = trim($parts[1], " \t\n\r\0\x0B\"'");
+                putenv("$key=$value");
+                $_ENV[$key] = $value;
             }
         }
     }
 }
 
-// អាន .env នៅក្នុង folder api ផ្ទាល់
+// Load environment variables
 load_env_direct(__DIR__ . '/.env');
-// អាន .env របស់ Laravel ទុកជាប្រភពបម្រុង
 load_env_direct(__DIR__ . '/../.env');
 
-// ទាញយកតម្លៃអថេរ Database 
+// 1. Set Aiven Cloud as the default database connection parameters
 $DB_HOST = getenv('DB_HOST')     ?: ($_ENV['DB_HOST']     ?? 'foodmonster-foodmonster2077.l.aivencloud.com');
-$DB_PORT = (int)(getenv('DB_PORT') ?: ($_ENV['DB_PORT']     ?? 27243));
+$DB_PORT = (int)(getenv('DB_PORT') ?: ($_ENV['DB_PORT']    ?? 27243));
 $DB_NAME = getenv('DB_DATABASE') ?: ($_ENV['DB_DATABASE'] ?? 'little_duckling_db');
 $DB_USER = getenv('DB_USERNAME') ?: ($_ENV['DB_USERNAME'] ?? 'avnadmin');
 $DB_PASS = getenv('DB_PASSWORD') ?: ($_ENV['DB_PASSWORD'] ?? 'AVNS_zm11DvJhdhSKo24pyuy');
-
-// បង្ខំប្រើតម្លៃ Aiven Cloud ភ្លាម បើនៅលើ Server Railway
-if (isset($_SERVER['HTTP_HOST']) && (str_contains($_SERVER['HTTP_HOST'], 'railway.app') || str_contains($_SERVER['HTTP_HOST'], 'up.railway.app'))) {
-    $DB_HOST = 'foodmonster-foodmonster2077.l.aivencloud.com';
-    $DB_PORT = 27243;
-    $DB_NAME = 'little_duckling_db';
-    $DB_USER = 'avnadmin';
-    $DB_PASS = 'AVNS_zm11DvJhdhSKo24pyuy';
-}
 
 $pdo = null;
 $conn = null;
 
 try {
-    // បង្កើត PDO Connection
-    $pdo = new PDO("mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ATTR_ERRMODE_EXCEPTION);
+    // 2. PDO Connection Setup with SSL verification disabled (required for quick cloud setup)
+    $pdo_options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::MYSQL_ATTR_SSL_CA       => true, // Tells PDO to initialize SSL connection
+        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false // Keeps local development connection smooth
+    ];
     
-    // បង្កើត mysqli Connection
-    $conn = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $DB_PORT);
-    if ($conn->connect_error) {
+    $pdo = new PDO("mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, $pdo_options);
+    
+    // 3. MySQLi Connection Setup with SSL
+    mysqli_report(MYSQLI_REPORT_OFF);
+    $conn = mysqli_init();
+    
+    // Initialize SSL flag before real connect execution
+    $conn->ssl_set(NULL, NULL, NULL, NULL, NULL); 
+    
+    if (!$conn->real_connect($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $DB_PORT, NULL, MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT)) {
         throw new Exception($conn->connect_error);
     }
+    
     $conn->set_charset("utf8mb4");
 
 } catch (Exception $e) {
     header("Content-Type: application/json; charset=UTF-8");
+    http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => "Database Connection Error: " . $e->getMessage()
+        "message" => "Database Connection Failed",
+        "error" => $e->getMessage()
     ]);
     exit;
 }
