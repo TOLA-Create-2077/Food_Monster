@@ -92,28 +92,7 @@ try {
         }
     } 
     // Case 2: Fallback sample mock data triggers if database is offline, empty, or missing tables
-    else {
-        $data = [
-            [
-                'id' => 1,
-                'title' => 'Beef Burger (Sample Public Fallback)',
-                'description' => 'Delicious juicy beef burger with cheese.',
-                'image' => 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600',
-                'price' => 4.50,
-                'type' => 'Fast Food',
-                'branch_id' => 1
-            ],
-            [
-                'id' => 2,
-                'title' => 'French Fries (Sample Public Fallback)',
-                'description' => 'Crispy and hot golden french fries.',
-                'image' => 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600',
-                'price' => 2.50,
-                'type' => 'Fast Food',
-                'branch_id' => 1
-            ]
-        ];
-    }
+   
 
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 

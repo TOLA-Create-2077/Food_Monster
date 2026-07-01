@@ -1,90 +1,73 @@
 <?php
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS"); // Added OPTIONS for preflight requests
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+/**
+ * config.php
+ * Central database connection for Aiven Cloud (Guarantees both $pdo and $conn variables exist)
+ */
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
+ini_set('display_errors', '0'); 
+error_reporting(E_ALL);
+
+if (!function_exists('load_env_direct')) {
+    function load_env_direct($path) {
+        if (!file_exists($path)) return;
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#') continue;
+            
+            if (strpos($line, '=') !== false) {
+                $parts = explode('=', $line, 2);
+                $key = trim($parts[0]);
+                $value = trim($parts[1], " \t\n\r\0\x0B\"'");
+                putenv("$key=$value");
+                $_ENV[$key] = $value;
+            }
+        }
+    }
 }
 
-require_once __DIR__ . '/config.php';
+// Load environment variables
+load_env_direct(__DIR__ . '/.env');
+load_env_direct(__DIR__ . '/../.env');
+
+// Aiven Cloud database configuration parameters
+$DB_HOST = getenv('DB_HOST')     ?: ($_ENV['DB_HOST']     ?? 'foodmonster-foodmonster2077.l.aivencloud.com');
+$DB_PORT = (int)(getenv('DB_PORT') ?: ($_ENV['DB_PORT']    ?? 27243));
+$DB_NAME = getenv('DB_DATABASE') ?: ($_ENV['DB_DATABASE'] ?? 'little_duckling_db');
+$DB_USER = getenv('DB_USERNAME') ?: ($_ENV['DB_USERNAME'] ?? 'avnadmin');
+$DB_PASS = getenv('DB_PASSWORD') ?: ($_ENV['DB_PASSWORD'] ?? 'AVNS_zm11DvJhdhSKo24pyuy');
+
+// CRITICAL: Initialize both variables as null first so they are never "Undefined"
+$pdo = null;
+$conn = null;
 
 try {
-    // 1. Read data from JSON Raw Body
-    $raw_input = file_get_contents("php://input");
-    $data = json_decode($raw_input, true);
-
-    // 2. Extract values (Supports both JSON and Form $_POST)
-    $name = isset($data['name']) ? trim($data['name']) : (isset($_POST['name']) ? trim($_POST['name']) : '');
-    $phone = isset($data['phone']) ? trim($data['phone']) : (isset($_POST['phone']) ? trim($_POST['phone']) : '');
-
-    $password = '';
-    if (isset($data['user_password'])) { $password = $data['user_password']; }
-    elseif (isset($data['password'])) { $password = $data['password']; }
-    elseif (isset($_POST['user_password'])) { $password = $_POST['user_password']; }
-    elseif (isset($_POST['password'])) { $password = $_POST['password']; }
-
-    if (empty($name) || empty($phone) || empty($password)) {
-        echo json_encode([
-            "success" => false,
-            "message" => "សូមបំពេញព័ត៌មានឱ្យបានគ្រប់គ្រាន់"
-        ]);
-        exit();
-    }
-
-    // Ensure database connection is up
-    if (!$conn) {
-        throw new Exception("Database connection is not available.");
-    }
-
-    // 3. Check for duplicate phone numbers
-    $checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ? LIMIT 1");
-    $checkStmt->bind_param("s", $phone);
-    $checkStmt->execute();
-    $checkResult = $checkStmt->get_result();
-
-    if ($checkResult->num_rows > 0) {
-        echo json_encode(["success" => false, "message" => "លេខទូរស័ព្ទនេះមានគណនីរួចហើយ"]);
-        $checkStmt->close();
-        exit();
-    }
-    $checkStmt->close();
-
-    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-
-    // 4. Insert data into 'users' table matching your exact schema columns
-    $stmt = $conn->prepare("INSERT INTO users (name, phone, password) VALUES (?, ?, ?)");
-    if (!$stmt) {
-        throw new Exception("Prepare statement failed: " . $conn->error);
-    }
+    // 1. PDO Connection Setup
+    $pdo_options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::MYSQL_ATTR_SSL_CA       => true, 
+        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false 
+    ];
+    $pdo = new PDO("mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, $pdo_options);
     
-    $stmt->bind_param("sss", $name, $phone, $hashedPassword);
-
-    if ($stmt->execute()) {
-        $newUserId = $conn->insert_id;
-
-        echo json_encode([
-            "success" => true,
-            "message" => "ចុះឈ្មោះជោគជ័យ",
-            "token" => "auto_generated_token_example", 
-            "user" => [
-                "id" => (int)$newUserId,
-                "name" => $name,
-                "phone" => $phone
-            ]
-        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    } else {
-        throw new Exception("Execution failed: " . $stmt->error);
+    // 2. MySQLi Connection Setup
+    mysqli_report(MYSQLI_REPORT_OFF);
+    $conn = mysqli_init();
+    $conn->ssl_set(NULL, NULL, NULL, NULL, NULL); 
+    
+    if (!$conn->real_connect($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $DB_PORT, NULL, MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT)) {
+        throw new Exception("MySQLi Connect Error: " . $conn->connect_error);
     }
-
-    $stmt->close();
+    $conn->set_charset("utf8mb4");
 
 } catch (Throwable $e) {
-    // Return explicit debugging message to find out exactly what failed
+    header("Content-Type: application/json; charset=UTF-8");
+    http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => "Database error.",
-        "debug_error" => $e->getMessage() 
-    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        "message" => "Database Connection Failed",
+        "error" => $e->getMessage()
+    ]);
+    exit;
 }
