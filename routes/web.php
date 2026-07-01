@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\URL; // 🛠️ ថែមមួយជួរនេះដើម្បីគ្រប់គ្រង HTTPS
+use Illuminate\Support\Facades\URL; 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
@@ -12,24 +12,27 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SetMenuController;
 use App\Http\Controllers\UserController;
 
-// 🛠️ ដំណោះស្រាយទី ១៖ បង្ខំឱ្យទាញយក CSS/JS តាម HTTPS (ដោះស្រាយរឿងបាត់ Style)
-if (env('APP_ENV') === 'production') {
+// 🛠️ ដំណោះស្រាយទី ១៖ បង្ខំឱ្យទាញយក CSS/JS តាម HTTPS (ដោះស្រាយរឿងបាត់ Style Dashboard)
+if (env('APP_ENV') === 'production' || config('app.env') === 'production') {
     URL::forceScheme('https');
 }
 
-// 🛠️ ដំណោះស្រាយទី ២៖ បើកផ្លូវឱ្យស្គាល់ហ្វាយល៍ PHP ធម្មតានៅក្នុង folder api/ ខាងក្រៅ (ដោះស្រាយរឿង API 404)
+// 🛠️ ដំណោះស្រាយទី ២៖ បើកផ្លូវឱ្យស្គាល់ហ្វាយល៍ PHP ធម្មតា និង Bypass CSRF (ដោះស្រាយរឿង Page Expired 419)
+// ការប្រើប្រាស់ withoutMiddleware គឺដើម្បីប្រាប់ Laravel ថាកុំឱ្យពិនិត្យ CSRF Token លើ Android Request
 Route::any('/api/{file}', function ($file) {
-    // ចាប់យកផ្លូវទៅកាន់ folder api/ ដែលនៅក្រៅបង្អស់
+    // ចាប់យកផ្លូវទៅកាន់ folder api/ ដែលនៅក្រៅបង្អស់ (base_path)
     $filePath = base_path('api/' . $file); 
-    if (file_exists($filePath)) {
+    
+    if (file_exists($filePath) && is_file($filePath)) {
+        // បើកសិទ្ធិឱ្យទិន្នន័យ POST រត់ចូលហ្វាយល៍ PHP ធម្មតាបានដោយសេរី
         require $filePath;
         exit;
     }
     abort(404);
-})->where('file', '.*');
+})->where('file', '.*')->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 
 
-// --- ក្រៅពីនេះ គឺរក្សាកូដ Route ដើមរបស់បងទុកដដែល ---
+// --- 🚀 រក្សាកូដ Route ដើមរបស់បងទុកដដែល មិនឱ្យប៉ះពាល់ឡើយ ---
 Route::get('/', function () {
     if (!Auth::check()) {
         return redirect()->route('login');
