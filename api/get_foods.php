@@ -11,19 +11,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/config.php';
 
 try {
-    // ពិនិត្យមើលអថេរតភ្ជាប់
+    // Check connection variables
     $db = $pdo ?? $conn;
     if (!$db) {
         throw new Exception("Database controller configuration missing.");
     }
 
-    // ពិនិត្យមើលថាតើមាន Table 'items' ដែរឬទេ
+    // Check if table 'items' exists
     $tableExists = false;
     if ($db instanceof PDO) {
         try {
+            // Using a lightweight test query
             $db->query("SELECT 1 FROM items LIMIT 1");
             $tableExists = true;
-        } catch (Exception $e) {
+        } catch (Throwable $e) { 
+            // Catching Throwable handles both PDOException and structural Engine Errors
             $tableExists = false;
         }
     } else {
@@ -33,7 +35,7 @@ try {
 
     $data = [];
 
-    // 💡 ករណីទី ១៖ បើមាន Table 'items' (ដូចជានៅលើ Local របស់បង) ឱ្យទាញទិន្នន័យពិត
+    // Case 1: If 'items' table exists, pull live data
     if ($tableExists) {
         $sql = "
             SELECT 
@@ -81,7 +83,7 @@ try {
             ];
         }
     } 
-    // 💡 ករណីទី ២៖ បើនៅលើ Railway មានតែ Table 'users' ឱ្យបោះទិន្នន័យគំរូនេះទៅ App កុំឱ្យគាំង
+    // Case 2: Fallback sample mock data to prevent front-end crashes
     else {
         $data = [
             [
@@ -107,10 +109,11 @@ try {
 
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
-} catch (Exception $e) {
-    http_response_code(200); // ការពារកុំឱ្យចេញ Error 500
+} catch (Throwable $e) {
+    // Keep 200 status code as requested to bypass strict network blockades
+    http_response_code(200); 
     echo json_encode([
         "success" => false,
         "message" => "Execution Error: " . $e->getMessage()
-    ]);
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 }
