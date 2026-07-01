@@ -1,7 +1,8 @@
 <?php
-// Force PHP to catch and return errors cleanly instead of throwing a 500 page
+// Set to 1 temporarily if you need to catch raw stack traces directly in your app response
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
+
 // Explicitly set server timezone to Cambodia (Phnom Penh)
 date_default_timezone_set('Asia/Phnom_Penh');
 
@@ -31,6 +32,15 @@ $data = json_decode($json_input, true);
 
 if (!$data) {
     echo json_encode(["success" => false, "message" => "No valid input data received. JSON parser failed."]);
+    exit();
+}
+
+// Check database connection before starting transaction
+if (!isset($conn) || $conn->connect_error) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Database connection failure: " . ($conn->connect_error ?? 'Connection object missing')
+    ]);
     exit();
 }
 
@@ -109,10 +119,10 @@ try {
 
     $stmt = $conn->prepare($orderQuery);
     if (!$stmt) {
-        throw new Exception("SQL syntax preparing error on master table: " . $conn->error);
+        throw new Exception("SQL syntax preparing error on orders table: " . $conn->error);
     }
 
-    // 🛠️ FIXED: Standardized to exactly 37 explicitly validated parameters to match the 37 placeholders ('?') above
+    // Exactly 37 parameters matching the placeholders above
     $types = "iiissssssiddiddddssssssssssssssisiiiss";
 
     $stmt->bind_param(
@@ -126,7 +136,7 @@ try {
     );
 
     if (!$stmt->execute()) {
-        throw new Exception("Execution saving error on orders master row: " . $stmt->error);
+        throw new Exception("Execution saving error on orders row: " . $stmt->error);
     }
 
     $orderId = $conn->insert_id;
@@ -139,10 +149,10 @@ try {
 
     $detailStmt = $conn->prepare($detailQuery);
     if (!$detailStmt) {
-        throw new Exception("SQL syntax planning error on items detail table: " . $conn->error);
+        throw new Exception("SQL syntax planning error on order_details table: " . $conn->error);
     }
 
-    // Initialize the tracking references cleanly
+    // Initialize tracking references variables cleanly
     $p_variate_id = 1;
     $p_desc       = '';
     $p_qty        = 1;
