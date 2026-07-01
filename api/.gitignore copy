@@ -1,0 +1,6 @@
+# Never commit real credentials
+.env
+
+# Common junk
+.DS_Store
+vendor/
