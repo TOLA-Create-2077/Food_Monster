@@ -12,24 +12,35 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SetMenuController;
 use App\Http\Controllers\UserController;
 
-// 🛠️ ដំណោះស្រាយទី ១៖ បង្ខំឱ្យទាញយក CSS/JS តាម HTTPS (ដោះស្រាយរឿងបាត់ Style Dashboard)
+// 🛠️ ១. បង្ខំឱ្យទាញយក CSS/JS តាម HTTPS (ដោះស្រាយរឿងបាត់ Style Dashboard ឱ្យត្រឡប់មកស្អាតវិញ)
 if (env('APP_ENV') === 'production' || config('app.env') === 'production') {
     URL::forceScheme('https');
 }
 
-// 🛠️ ដំណោះស្រាយទី ២៖ បើកផ្លូវឱ្យស្គាល់ហ្វាយល៍ PHP ធម្មតា និង Bypass CSRF (ដោះស្រាយរឿង Page Expired 419)
-// ការប្រើប្រាស់ withoutMiddleware គឺដើម្បីប្រាប់ Laravel ថាកុំឱ្យពិនិត្យ CSRF Token លើ Android Request
+// 🛠️ ២. វិធីសាស្ត្រកម្រិតខ្ពស់សម្រាប់ Bypass CSRF និងស្ទាក់ចាប់ហ្វាយល៍ API (ដោះស្រាយដាច់ខាតរឿង Page Expired 419)
 Route::any('/api/{file}', function ($file) {
-    // ចាប់យកផ្លូវទៅកាន់ folder api/ ដែលនៅក្រៅបង្អស់ (base_path)
+    // ចាប់យកផ្លូវទៅកាន់ folder api/ ដែលនៅក្រៅបង្អស់
     $filePath = base_path('api/' . $file); 
     
     if (file_exists($filePath) && is_file($filePath)) {
-        // បើកសិទ្ធិឱ្យទិន្នន័យ POST រត់ចូលហ្វាយល៍ PHP ធម្មតាបានដោយសេរី
+        // បិទដំណើរការ Session និង CSRF របស់ Laravel ទាំងស្រុងសម្រាប់ផ្លូវនេះ
+        config(['session.driver' => 'array']);
+        
+        // បង្ខំឱ្យបោះ Header ជា JSON ទៅកាន់ Android App
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+        
+        // ដំណើរការហ្វាយល៍ PHP ធម្មតា
         require $filePath;
         exit;
     }
     abort(404);
-})->where('file', '.*')->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+})->where('file', '.*')->withoutMiddleware([
+    \App\Http\Middleware\VerifyCsrfToken::class,
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class
+]);
 
 
 // --- 🚀 រក្សាកូដ Route ដើមរបស់បងទុកដដែល មិនឱ្យប៉ះពាល់ឡើយ ---
