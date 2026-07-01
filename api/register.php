@@ -1,18 +1,21 @@
 <?php
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST");
+header("Access-Control-Allow-Methods: POST, OPTIONS"); // Added OPTIONS for preflight requests
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// Credentials now come from config.php (env vars), not hardcoded here.
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
 require_once __DIR__ . '/config.php';
 
 try {
-    // ១. អានទិន្នន័យពី JSON Raw Body
+    // 1. Read data from JSON Raw Body
     $raw_input = file_get_contents("php://input");
     $data = json_decode($raw_input, true);
 
-    // ២. ទាញយកតម្លៃ (គាំទ្រទាំង JSON និង Form $_POST)
+    // 2. Extract values (Supports both JSON and Form $_POST)
     $name = isset($data['name']) ? trim($data['name']) : (isset($_POST['name']) ? trim($_POST['name']) : '');
     $phone = isset($data['phone']) ? trim($data['phone']) : (isset($_POST['phone']) ? trim($_POST['phone']) : '');
 
@@ -23,9 +26,6 @@ try {
     elseif (isset($_POST['password'])) { $password = $_POST['password']; }
 
     if (empty($name) || empty($phone) || empty($password)) {
-        // NOTE: previously this leaked the raw request body (debug_json / debug_post)
-        // back to the client, which can expose whatever the caller sent (including
-        // passwords) in the response. Removed — never echo raw input back.
         echo json_encode([
             "success" => false,
             "message" => "សូមបំពេញព័ត៌មានឱ្យបានគ្រប់គ្រាន់"
@@ -33,7 +33,12 @@ try {
         exit();
     }
 
-    // ៣. ពិនិត្យមើលលេខទូរស័ព្ទជាន់គ្នា
+    // Ensure database connection is up
+    if (!$conn) {
+        throw new Exception("Database connection is not available.");
+    }
+
+    // 3. Check for duplicate phone numbers
     $checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ? LIMIT 1");
     $checkStmt->bind_param("s", $phone);
     $checkStmt->execute();
@@ -42,15 +47,18 @@ try {
     if ($checkResult->num_rows > 0) {
         echo json_encode(["success" => false, "message" => "លេខទូរស័ព្ទនេះមានគណនីរួចហើយ"]);
         $checkStmt->close();
-        $conn->close();
         exit();
     }
     $checkStmt->close();
 
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-    // ៤. បញ្ចូលទិន្នន័យទៅក្នុង Database table 'users'
-    $stmt = $conn->prepare("INSERT INTO users (name, phone, password, status, role, type) VALUES (?, ?, ?, 'ACTIVE', 'user', 'user')");
+    // 4. Insert data into 'users' table matching your exact schema columns
+    $stmt = $conn->prepare("INSERT INTO users (name, phone, password) VALUES (?, ?, ?)");
+    if (!$stmt) {
+        throw new Exception("Prepare statement failed: " . $conn->error);
+    }
+    
     $stmt->bind_param("sss", $name, $phone, $hashedPassword);
 
     if ($stmt->execute()) {
@@ -59,23 +67,24 @@ try {
         echo json_encode([
             "success" => true,
             "message" => "ចុះឈ្មោះជោគជ័យ",
-            "token" => "auto_generated_token_example", // TODO: replace with a real JWT/session token
+            "token" => "auto_generated_token_example", 
             "user" => [
                 "id" => (int)$newUserId,
                 "name" => $name,
                 "phone" => $phone
             ]
-        ]);
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     } else {
-        echo json_encode(["success" => false, "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការរក្សាទុកទិន្នន័យ"]);
+        throw new Exception("Execution failed: " . $stmt->error);
     }
 
     $stmt->close();
-    $conn->close();
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    // Return explicit debugging message to find out exactly what failed
     echo json_encode([
         "success" => false,
-        "message" => "Database error."
-    ]);
+        "message" => "Database error.",
+        "debug_error" => $e->getMessage() 
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 }
