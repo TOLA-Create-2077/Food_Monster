@@ -112,7 +112,8 @@ try {
         throw new Exception("SQL syntax preparing error on master table: " . $conn->error);
     }
 
-    $types = "iiissssssiddiddddssssssssssssssisii" . "ss";
+    // 🛠️ FIXED: Standardized to exactly 37 explicitly validated parameters to match the 37 placeholders ('?') above
+    $types = "iiissssssiddiddddssssssssssssssisiiiss";
 
     $stmt->bind_param(
         $types,
@@ -125,7 +126,7 @@ try {
     );
 
     if (!$stmt->execute()) {
-        throw new Exception("Execution saving error on orders master raw: " . $stmt->error);
+        throw new Exception("Execution saving error on orders master row: " . $stmt->error);
     }
 
     $orderId = $conn->insert_id;
@@ -141,7 +142,7 @@ try {
         throw new Exception("SQL syntax planning error on items detail table: " . $conn->error);
     }
 
-    // Explicitly initialize the tracking reference placeholders
+    // Initialize the tracking references cleanly
     $p_variate_id = 1;
     $p_desc       = '';
     $p_qty        = 1;
@@ -158,7 +159,6 @@ try {
     );
 
     foreach ($items as $item) {
-        // 🛠️ FIXED: Prevent passing null references to the integer binder 'i'
         $raw_id = $item['product_variate_id'] ?? $item['productVariateId'] ?? 1;
         $p_variate_id = ($raw_id !== null && (int)$raw_id > 0) ? (int)$raw_id : 1;
         
