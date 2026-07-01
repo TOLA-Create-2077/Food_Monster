@@ -12,12 +12,12 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SetMenuController;
 use App\Http\Controllers\UserController;
 
-// 🛠️ ១. បង្ខំឱ្យទាញយក CSS/JS តាម HTTPS (ដោះស្រាយរឿងបាត់ Style Dashboard ឱ្យត្រឡប់មកស្អាតវិញ)
+// 🛠️ ១. បង្ខំឱ្យទាញយក CSS/JS តាម HTTPS (សម្រាប់តែនៅលើ Production/Railway ប៉ុណ្ណោះ ចំណែក Local ទុកធម្មតា)
 if (env('APP_ENV') === 'production' || config('app.env') === 'production') {
     URL::forceScheme('https');
 }
 
-// 🛠️ ២. វិធីសាស្ត្រកម្រិតខ្ពស់សម្រាប់ Bypass CSRF និងស្ទាក់ចាប់ហ្វាយល៍ API (ដោះស្រាយដាច់ខាតរឿង Page Expired 419)
+// 🛠️ ២. បើកផ្លូវលក្ខខណ្ឌពិសេសរវាង Local និង Production (ដោះស្រាយដាច់ខាតរឿង Page Expired 419 និង 404 Not Found)
 Route::any('/api/{file}', function ($file) {
     // ចាប់យកផ្លូវទៅកាន់ folder api/ ដែលនៅក្រៅបង្អស់
     $filePath = base_path('api/' . $file); 
@@ -26,11 +26,16 @@ Route::any('/api/{file}', function ($file) {
         // បិទដំណើរការ Session និង CSRF របស់ Laravel ទាំងស្រុងសម្រាប់ផ្លូវនេះ
         config(['session.driver' => 'array']);
         
-        // បង្ខំឱ្យបោះ Header ជា JSON ទៅកាន់ Android App
+        // បង្ខំឱ្យបោះ Header សិទ្ធិ និង JSON ទៅកាន់ Android App / Emulator
         header('Access-Control-Allow-Origin: *');
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
         header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+        header('Content-Type: application/json; charset=UTF-8');
         
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            exit(0);
+        }
+
         // ដំណើរការហ្វាយល៍ PHP ធម្មតា
         require $filePath;
         exit;
