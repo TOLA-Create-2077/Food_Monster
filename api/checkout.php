@@ -141,7 +141,16 @@ try {
         throw new Exception("SQL syntax planning error on items detail table: " . $conn->error);
     }
 
-    // 🛠️ FIXED: Bind parameters outside the loop using explicitly named variable containers
+    // Explicitly initialize the tracking reference placeholders
+    $p_variate_id = 1;
+    $p_desc       = '';
+    $p_qty        = 1;
+    $p_u_price    = 0.0;
+    $p_discount   = 0.0;
+    $p_sub        = 0.0;
+    $p_grand      = 0.0;
+    $p_status     = 'PENDING';
+
     $detailStmt->bind_param(
         "iisisdddsss",
         $orderId, $p_variate_id, $p_desc, $p_qty,
@@ -149,8 +158,10 @@ try {
     );
 
     foreach ($items as $item) {
-        // Update the variables that are bound to the statement
-        $p_variate_id = isset($item['product_variate_id']) ? (int)$item['product_variate_id'] : (isset($item['productVariateId']) ? (int)$item['productVariateId'] : null);
+        // 🛠️ FIXED: Prevent passing null references to the integer binder 'i'
+        $raw_id = $item['product_variate_id'] ?? $item['productVariateId'] ?? 1;
+        $p_variate_id = ($raw_id !== null && (int)$raw_id > 0) ? (int)$raw_id : 1;
+        
         $p_desc       = $item['description'] ?? 'Food item ordered';
         $p_qty        = (int)($item['quantity'] ?? 1);
         $p_u_price    = (double)($item['unit_price'] ?? $item['unitPrice'] ?? 0.0);
