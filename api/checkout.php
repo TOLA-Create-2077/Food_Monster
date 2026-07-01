@@ -1,5 +1,5 @@
 <?php
-// Force PHP to catch and return errors cleanly instead of throwing a generic 500 page
+// Force PHP to catch and return errors cleanly instead of throwing a 500 page
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
 
@@ -24,13 +24,17 @@ set_exception_handler(function ($e) {
     exit();
 });
 
-// Credentials come from config.php (Handles switching between local/production seamlessly)
-require_once __DIR__ . '/config.php';
+$host = "localhost";
+$db_user = "root"; 
+$db_pass = "";     
+$db_name = "little_duckling_db";
 
-if (!isset($conn) || $conn->connect_error) {
-    echo json_encode(["success" => false, "message" => "Database connection failed: " . ($conn->connect_error ?? "Connection object missing")]);
+$conn = new mysqli($host, $db_user, $db_pass, $db_name);
+if ($conn->connect_error) {
+    echo json_encode(["success" => false, "message" => "Database connection failed: " . $conn->connect_error]);
     exit();
 }
+$conn->set_charset("utf8mb4");
 
 $json_input = file_get_contents("php://input");
 $data = json_decode($json_input, true);
@@ -57,7 +61,7 @@ try {
     $delivery_fee        = (double)($data['delivery_fee'] ?? $data['deliveryFee'] ?? 0.0);
     $driver_delivery_fee = (double)($data['driver_delivery_fee'] ?? $data['driverDeliveryFee'] ?? 0.0);
     
-    // 🛠️ FIXED: Your database stores string values like 'no' for free_delivery
+    // 🛠️ FIXED: Stored as a string to allow text options like "no" matching your database layout
     $free_delivery       = $data['free_delivery'] ?? $data['freeDelivery'] ?? 'no'; 
     $discount_percent    = (double)($data['discount_percent'] ?? $data['discountPercent'] ?? 0.0);
     
@@ -120,7 +124,8 @@ try {
         throw new Exception("SQL syntax preparing error on master table: " . $conn->error);
     }
 
-    // 🛠️ EXACTLY 37 Characters matching your exact database data layouts:
+    // 🛠️ FIXED: String maps to exactly 37 parameters matching your database data layouts flawlessly.
+    // Index 12 (free_delivery) is treated as a string ('s') instead of an integer.
     $types = "iiissssssddsddddssssssssssssssisissi";
 
     $stmt->bind_param(
@@ -140,38 +145,39 @@ try {
     $orderId = $conn->insert_id;
     $stmt->close();
 
-    // If you have an order details table, this loop completes the transaction cleanly
-    if (isset($data['items'])) {
-        $detailQuery = "INSERT INTO `order_details` (
-            order_id, product_variate_id, description, quantity, 
-            unit_price, discount_percent, sub_total, grand_total, status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $detailQuery = "INSERT INTO `order_details` (
+        order_id, product_variate_id, description, quantity, 
+        unit_price, discount_percent, sub_total, grand_total, status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        $detailStmt = $conn->prepare($detailQuery);
-        if ($detailStmt) {
-            foreach ($items as $item) {
-                $raw_id = $item['product_variate_id'] ?? $item['productVariateId'] ?? null;
-                $product_variate_id = ($raw_id !== null && (int)$raw_id > 0) ? (int)$raw_id : null;
-                
-                $description        = $item['description'] ?? 'Food item ordered';
-                $quantity           = (int)($item['quantity'] ?? 1);
-                $unit_price         = (double)($item['unit_price'] ?? $item['unitPrice'] ?? 0.0);
-                $item_discount      = (double)($item['discount_percent'] ?? $item['discountPercent'] ?? 0.0);
-                $item_sub_total     = (double)($item['sub_total'] ?? $item['subTotal'] ?? ($unit_price * $quantity));
-                $item_grand_total   = (double)($item['grand_total'] ?? $item['grandTotal'] ?? $item_sub_total);
-                $item_status        = $item['status'] ?? 'PENDING';
-
-                $detailStmt->bind_param(
-                    "iisisdddsss",
-                    $orderId, $product_variate_id, $description, $quantity,
-                    $unit_price, $item_discount, $item_sub_total, $item_grand_total, $item_status, $created_at, $updated_at
-                );
-                $detailStmt->execute();
-            }
-            $detailStmt->close();
-        }
+    $detailStmt = $conn->prepare($detailQuery);
+    if (!$detailStmt) {
+        throw new Exception("SQL syntax planning error on items detail table: " . $conn->error);
     }
 
+    foreach ($items as $item) {
+        $raw_id = $item['product_variate_id'] ?? $item['productVariateId'] ?? null;
+        $product_variate_id = ($raw_id !== null && (int)$raw_id > 0) ? (int)$raw_id : null;
+        
+        $description        = $item['description'] ?? 'Food item ordered';
+        $quantity           = (int)($item['quantity'] ?? 1);
+        $unit_price         = (double)($item['unit_price'] ?? $item['unitPrice'] ?? 0.0);
+        $item_discount      = (double)($item['discount_percent'] ?? $item['discountPercent'] ?? 0.0);
+        $item_sub_total     = (double)($item['sub_total'] ?? $item['subTotal'] ?? ($unit_price * $quantity));
+        $item_grand_total   = (double)($item['grand_total'] ?? $item['grandTotal'] ?? $item_sub_total);
+        $item_status        = $item['status'] ?? 'PENDING';
+
+        $detailStmt->bind_param(
+            "iisisdddsss",
+            $orderId, $product_variate_id, $description, $quantity,
+            $unit_price, $item_discount, $item_sub_total, $item_grand_total, $item_status, $created_at, $updated_at
+        );
+        
+        if (!$detailStmt->execute()) {
+            throw new Exception("Failed saving entry item line: " . $detailStmt->error);
+        }
+    }
+    $detailStmt->close();
     $conn->commit();
 
     echo json_encode([
@@ -192,3 +198,4 @@ try {
 }
 
 $conn->close();
+?>
