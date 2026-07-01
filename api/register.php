@@ -1,15 +1,10 @@
 <?php
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-// ប្រសិនបើជា OPTIONS Request (CORS Preflight) ឱ្យត្រឡប់ទៅវិញភ្លាម
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
-
-// ទាញយកអថេរ $pdo ចេញពី config.php
+// Credentials now come from config.php (env vars), not hardcoded here.
 require_once __DIR__ . '/config.php';
 
 try {
@@ -28,6 +23,9 @@ try {
     elseif (isset($_POST['password'])) { $password = $_POST['password']; }
 
     if (empty($name) || empty($phone) || empty($password)) {
+        // NOTE: previously this leaked the raw request body (debug_json / debug_post)
+        // back to the client, which can expose whatever the caller sent (including
+        // passwords) in the response. Removed — never echo raw input back.
         echo json_encode([
             "success" => false,
             "message" => "សូមបំពេញព័ត៌មានឱ្យបានគ្រប់គ្រាន់"
@@ -35,36 +33,33 @@ try {
         exit();
     }
 
-    // 🛠️ ៣. ពិនិត្យមើលលេខទូរស័ព្ទជាន់គ្នា (ប្តូរមកប្រើទម្រង់ PDO)
-    $checkStmt = $pdo->prepare("SELECT id FROM users WHERE phone = :phone LIMIT 1");
-    $checkStmt->execute([':phone' => $phone]);
-    
-    if ($checkStmt->fetch()) {
-        echo json_encode([
-            "success" => false, 
-            "message" => "លេខទូរស័ព្ទនេះមានគណនីរួចហើយ"
-        ]);
+    // ៣. ពិនិត្យមើលលេខទូរស័ព្ទជាន់គ្នា
+    $checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ? LIMIT 1");
+    $checkStmt->bind_param("s", $phone);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+
+    if ($checkResult->num_rows > 0) {
+        echo json_encode(["success" => false, "message" => "លេខទូរស័ព្ទនេះមានគណនីរួចហើយ"]);
+        $checkStmt->close();
+        $conn->close();
         exit();
     }
+    $checkStmt->close();
 
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-    // 🛠️ ៤. បញ្ចូលទិន្នន័យទៅក្នុង Database table 'users' (ប្តូរមកប្រើទម្រង់ PDO)
-    $stmt = $pdo->prepare("INSERT INTO users (name, phone, password, status, role, type) VALUES (:name, :phone, :password, 'ACTIVE', 'user', 'user')");
-    
-    $success = $stmt->execute([
-        ':name'     => $name,
-        ':phone'    => $phone,
-        ':password' => $hashedPassword
-    ]);
+    // ៤. បញ្ចូលទិន្នន័យទៅក្នុង Database table 'users'
+    $stmt = $conn->prepare("INSERT INTO users (name, phone, password, status, role, type) VALUES (?, ?, ?, 'ACTIVE', 'user', 'user')");
+    $stmt->bind_param("sss", $name, $phone, $hashedPassword);
 
-    if ($success) {
-        $newUserId = $pdo->lastInsertId();
+    if ($stmt->execute()) {
+        $newUserId = $conn->insert_id;
 
         echo json_encode([
             "success" => true,
             "message" => "ចុះឈ្មោះជោគជ័យ",
-            "token" => "auto_generated_token_example", 
+            "token" => "auto_generated_token_example", // TODO: replace with a real JWT/session token
             "user" => [
                 "id" => (int)$newUserId,
                 "name" => $name,
@@ -72,16 +67,15 @@ try {
             ]
         ]);
     } else {
-        echo json_encode([
-            "success" => false, 
-            "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការរក្សាទុកទិន្នន័យ"
-        ]);
+        echo json_encode(["success" => false, "message" => "មានបញ្ហាបច្ចេកទេសក្នុងការរក្សាទុកទិន្នន័យ"]);
     }
 
+    $stmt->close();
+    $conn->close();
+
 } catch (Exception $e) {
-    // 💡 ជំនួយការលម្អិត៖ ប្រសិនបើមាន Error វានឹងប្រាប់ចំៗតែម្តងដើម្បីងាយស្រួលកែសម្រួល
     echo json_encode([
         "success" => false,
-        "message" => "Database error: " . $e->getMessage()
+        "message" => "Database error."
     ]);
 }
