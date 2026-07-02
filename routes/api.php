@@ -1,13 +1,21 @@
-<?php 
+<?php
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\DB;
 
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
+
+// CRITICAL FIX: Explicitly match the exact URL ".php" suffix sent by Retrofit
 Route::post('/place_order.php', function (Request $request) {
     try {
         DB::beginTransaction();
 
-        // 1. Gather main order fields sent from Android
+        // 1. Gather main order fields matching the Kotlin OrderRequest object payload
         $orderId = DB::table('orders')->insertGetId([
             'branch_id'           => $request->input('branch_id', 1),
             'order_source_id'     => $request->input('order_source_id', 1),
@@ -28,11 +36,11 @@ Route::post('/place_order.php', function (Request $request) {
             'updated_at'          => now(),
         ]);
 
-        // Generate custom sequential code string (e.g., FM-000124)
+        // 2. Generate unique order tracking string sequence (e.g., FM-000124)
         $generatedCode = "FM-" . str_pad($orderId, 6, "0", STR_PAD_LEFT);
         DB::table('orders')->where('id', $orderId)->update(['code' => $generatedCode]);
 
-        // 2. Loop through child order items elements array list and save
+        // 3. Loop through child elements list and insert items to order_items table
         $items = $request->input('items', []);
         foreach ($items as $item) {
             DB::table('order_items')->insert([
@@ -50,6 +58,7 @@ Route::post('/place_order.php', function (Request $request) {
 
         DB::commit();
 
+        // Return exact response layout expected by Retrofit CheckoutViewModel
         return response()->json([
             "success" => true,
             "message" => "Order placed successfully.",
@@ -59,9 +68,10 @@ Route::post('/place_order.php', function (Request $request) {
 
     } catch (\Exception $e) {
         DB::rollBack();
+        
         return response()->json([
             "success" => false,
-            "message" => "Laravel Core Exception Error: " . $e->getMessage(),
+            "message" => "Laravel Engine Routing Error: " . $e->getMessage(),
             "order_id" => null,
             "code" => null
         ], 500);
