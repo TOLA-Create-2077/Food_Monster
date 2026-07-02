@@ -2,9 +2,8 @@
 /**
  * config_pdo.php
  *
- * PDO variant of config.php, for endpoints written against PDO
- * (create_order.php, place_order.php). Same env-var approach — see
- * config.php for details and .env.example for the variable names.
+ * PDO variant of config.php, optimized for both local Laragon development 
+ * and production live environments like Railway.
  */
 
 if (!function_exists('load_env')) {
@@ -21,26 +20,32 @@ if (!function_exists('load_env')) {
             [$key, $value] = array_pad(explode('=', $line, 2), 2, '');
             $key = trim($key);
             $value = trim($value, " \t\n\r\0\x0B\"'");
-            if ($key !== '' && getenv($key) === false) {
+            
+            // Only load from file if the variable doesn't already exist in system env
+            if ($key !== '' && getenv($key) === false && $_ENV[$key] === null && $_SERVER[$key] === null) {
                 putenv("$key=$value");
+                $_ENV[$key] = $value;
             }
         }
     }
 }
+
+// Safely attempt local fallback loading
 load_env(__DIR__ . '/.env');
 
-$DB_HOST = getenv('DB_HOST') ?: '';
-$DB_PORT = getenv('DB_PORT') ?: '3306';
-$DB_USER = getenv('DB_USER') ?: '';
-$DB_PASS = getenv('DB_PASS') ?: '';
-$DB_NAME = getenv('DB_NAME') ?: '';
+// Railway injects these automatically; we fall back to getenv or $_ENV array map structures
+$DB_HOST = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?: ($_SERVER['DB_HOST'] ?: ''));
+$DB_PORT = getenv('DB_PORT') ?: ($_ENV['DB_PORT'] ?: ($_SERVER['DB_PORT'] ?: '3306'));
+$DB_USER = getenv('DB_USER') ?: ($_ENV['DB_USER'] ?: ($_SERVER['DB_USER'] ?: ''));
+$DB_PASS = getenv('DB_PASS') ?: ($_ENV['DB_PASS'] ?: ($_SERVER['DB_PASS'] ?: ''));
+$DB_NAME = getenv('DB_NAME') ?: ($_ENV['DB_NAME'] ?: ($_SERVER['DB_NAME'] ?: ''));
 
 if ($DB_HOST === '' || $DB_USER === '' || $DB_NAME === '') {
     http_response_code(500);
     header("Content-Type: application/json; charset=UTF-8");
     echo json_encode([
         "success" => false,
-        "message" => "Server misconfigured: database environment variables are not set."
+        "message" => "Server misconfigured: Environment database variables missing. Host: '$DB_HOST', User: '$DB_USER', DB: '$DB_NAME'"
     ]);
     exit;
 }
@@ -51,10 +56,14 @@ try {
         $DB_USER,
         $DB_PASS
     );
+    // Enable exceptions so we catch exact column mismatches immediately
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $exception) {
     http_response_code(500);
     header("Content-Type: application/json; charset=UTF-8");
-    echo json_encode(["success" => false, "message" => "Database connection failed."]);
+    echo json_encode([
+        "success" => false, 
+        "message" => "Database connection failed: " . $exception->getMessage()
+    ]);
     exit;
 }
