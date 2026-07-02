@@ -6,7 +6,6 @@ header("Access-Control-Allow-Methods: POST");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 // 1. Include your database connection setup
-// Check if config_pdo.php or config.php contains your $pdo connection instance
 require_once __DIR__ . '/config_pdo.php'; 
 
 // 2. Fetch the raw input data coming from Android Retrofit client body
@@ -15,8 +14,8 @@ $data = json_decode($inputRaw, true);
 
 if (!empty($data)) {
     try {
-        // Start a database transaction to ensure data safety on both tables
-        $pdo->beginTransaction();
+        // Start a database transaction using your $conn variable safely
+        $conn->beginTransaction();
 
         // 3. Extract the primary order request details mapped from Kotlin OrderRequest
         $branch_id          = isset($data['branch_id']) ? (int)$data['branch_id'] : 1;
@@ -52,7 +51,7 @@ if (!empty($data)) {
             :sub_total, :grand_total, :payment_type, :user_id, :remark, NOW()
         )";
 
-        $orderStmt = $pdo->prepare($orderQuery);
+        $orderStmt = $conn->prepare($orderQuery);
         $orderStmt->execute([
             ':branch_id'          => $branch_id,
             ':order_source_id'    => $order_source_id,
@@ -72,14 +71,14 @@ if (!empty($data)) {
         ]);
 
         // Get the structural ID generated for this unique order transaction
-        $orderId = $pdo->lastInsertId();
+        $orderId = $conn->lastInsertId();
         
         // Generate a clean user-facing tracking string code format (e.g., FM-000124)
         $generatedCode = "FM-" . str_pad($orderId, 6, "0", STR_PAD_LEFT);
         
         // Update the order entry row with the tracking sequence code text
         $updateCodeQuery = "UPDATE orders SET code = :code WHERE id = :id";
-        $updateStmt = $pdo->prepare($updateCodeQuery);
+        $updateStmt = $conn->prepare($updateCodeQuery);
         $updateStmt->execute([':code' => $generatedCode, ':id' => $orderId]);
 
         // 5. Loop through and execute child rows mapping items array list inside `order_items`
@@ -90,7 +89,7 @@ if (!empty($data)) {
                 :order_id, :product_variate_id, :description, :quantity, :unit_price, :sub_total, :grand_total
             )";
 
-            $itemStmt = $pdo->prepare($itemQuery);
+            $itemStmt = $conn->prepare($itemQuery);
             $itemStmt->execute([
                 ':order_id'           => $orderId,
                 ':product_variate_id' => isset($item['product_variate_id']) ? (int)$item['product_variate_id'] : 0,
@@ -103,7 +102,7 @@ if (!empty($data)) {
         }
 
         // Commit the complete transaction pipeline block together securely
-        $pdo->commit();
+        $conn->commit();
 
         // 6. Return successful status response directly matching your Kotlin OrderResponse model
         echo json_encode([
@@ -115,20 +114,19 @@ if (!empty($data)) {
 
     } catch (Exception $e) {
         // Rollback structural additions safely if internal errors take place
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        if (isset($conn) && $conn->inTransaction()) {
+            $conn->rollBack();
         }
 
         http_response_code(500);
         echo json_encode([
             "success" => false,
-            "message" => "Server Error: Process stopped. " . $e->getMessage(),
+            "message" => "Database Error: " . $e->getMessage(), // Tells you exactly what table/column is wrong!
             "order_id" => null,
             "code" => null
         ]);
     }
 } else {
-    // Bad validation response configuration settings block 
     http_response_code(400);
     echo json_encode([
         "success" => false,
