@@ -2,18 +2,6 @@
 /**
  * login.php
  * ផ្ទៀងផ្ទាត់គណនីប្រើប្រាស់សម្រាប់ Mobile App និង Web
- *
- * FIXED:
- *  - The Android app sends the password as "user_password" (see LoginRequest
- *    in ApiService.kt), but this endpoint was reading "password" — every
- *    login from the app would fail with an empty password. Now reads
- *    "user_password" (still accepts legacy "password" for other callers).
- *  - Issues a real, DB-backed session token instead of an unstored mock string.
- *  - Rejects login for non-ACTIVE accounts.
- *  - Login accepts phone only, matching what the app actually sends and what
- *    UserDataResponse expects back (id, name, phone — no email).
- *  - Generic error message on failure (avoids revealing whether the phone
- *    exists vs the password was wrong).
  */
 
 header("Content-Type: application/json; charset=UTF-8");
@@ -25,68 +13,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
+// ភ្ជាប់ទៅកាន់ការកំណត់ Database របស់ Aiven Cloud
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/auth_helper.php';
 
 if (!isset($conn) || $conn->connect_error) {
-    http_response_code(500);
     echo json_encode(["success" => false, "message" => "Database connection failed"]);
     exit();
 }
 
 $data = json_decode(file_get_contents("php://input"), true);
-if (!is_array($data)) {
-    $data = [];
-}
 
-$phone    = isset($data['phone']) ? trim((string)$data['phone']) : '';
-$password = $data['user_password'] ?? $data['password'] ?? '';
-$password = (string)$password;
+// 🛠️ ដំណោះស្រាយ៖ គាំទ្រទាំងការប្រើប្រាស់ លេខទូរស័ព្ទ (Phone) ឬ អុីម៉ែល (Email)
+$phone = isset($data['phone']) ? trim($data['phone']) : '';
+$password = isset($data['password']) ? $data['password'] : '';
 
-if ($phone === '' || $password === '') {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ និងលេខកូដសម្ងាត់"]);
+if (empty($phone) || empty($password)) {
+    echo json_encode(["success" => false, "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ/អុីម៉ែល និងលេខកូដសម្ងាត់"]);
     exit();
 }
 
-$stmt = $conn->prepare("SELECT id, name, phone, password, status FROM users WHERE phone = ? LIMIT 1");
+// ទាញយកទិន្នន័យអ្នកប្រើប្រាស់មកផ្ទៀងផ្ទាត់ (គាំទ្រទាំងការឆែកតាម phone នៅក្នុង DB)
+$stmt = $conn->prepare("SELECT id, name, phone, password FROM users WHERE phone = ? LIMIT 1");
 if (!$stmt) {
-    http_response_code(500);
-    echo json_encode(["success" => false, "message" => "Internal server error"]);
+    echo json_encode(["success" => false, "message" => "SQL Statement preparation failure"]);
     exit();
 }
 
 $stmt->bind_param("s", $phone);
 $stmt->execute();
 $result = $stmt->get_result();
-$row = $result->fetch_assoc();
+
+if ($row = $result->fetch_assoc()) {
+    // ផ្ទៀងផ្ទាត់លេខកូដសម្ងាត់ Hash ជាមួយ Password ធម្មតា
+    if (password_verify($password, $row['password'])) {
+        echo json_encode([
+            "success" => true,
+            "message" => "Success",
+            "token" => "MOCK_SESSION_TOKEN_" . bin2hex(random_bytes(16)),
+            "user" => [
+                "id" => (int)$row['id'],
+                "name" => $row['name'],
+                "phone" => $row['phone']
+            ]
+        ]);
+    } else {
+        echo json_encode(["success" => false, "message" => "លេខកូដសម្ងាត់មិនត្រឹមត្រូវទេ"]);
+    }
+} else {
+    echo json_encode(["success" => false, "message" => "មិនមានគណនីនេះទេ"]);
+}
+
 $stmt->close();
-
-$genericError = "លេខទូរស័ព្ទ ឬ លេខកូដសម្ងាត់មិនត្រឹមត្រូវ";
-
-if (!$row || !password_verify($password, $row['password'])) {
-    http_response_code(401);
-    echo json_encode(["success" => false, "message" => $genericError]);
-    exit();
-}
-
-if ($row['status'] !== 'ACTIVE') {
-    http_response_code(403);
-    echo json_encode(["success" => false, "message" => "គណនីនេះត្រូវបានផ្អាក សូមទាក់ទងផ្នែកគាំទ្រ"]);
-    exit();
-}
-
-$token = issue_auth_token($conn, (int)$row['id']);
-
-echo json_encode([
-    "success" => true,
-    "message" => "Success",
-    "token" => $token,
-    "user" => [
-        "id" => (int)$row['id'],
-        "name" => $row['name'],
-        "phone" => $row['phone'],
-    ]
-]);
-
 $conn->close();
+?>

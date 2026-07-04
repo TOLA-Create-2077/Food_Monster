@@ -1,100 +1,73 @@
 <?php
 /**
- * register.php
- * បង្កើតគណនីថ្មីសម្រាប់ Mobile App និង Web
- *
- * FIXED to match the real RegisterRequest sent by the app: fields are
- * name, phone, user_password (no email — the app doesn't collect one).
- *
- *  - Password hashed with password_hash() (bcrypt), same format already used
- *    for every existing row in `users`.
- *  - Rejects duplicate phone.
- *  - New accounts default to role "user" / status "ACTIVE".
- *  - Issues a real session token and returns the same shape as login.php so
- *    the app can log the user straight in after registering.
+ * config.php
+ * Central database connection for Aiven Cloud (Guarantees both $pdo and $conn variables exist)
  */
 
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+ini_set('display_errors', '0'); 
+error_reporting(E_ALL);
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
+if (!function_exists('load_env_direct')) {
+    function load_env_direct($path) {
+        if (!file_exists($path)) return;
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#') continue;
+            
+            if (strpos($line, '=') !== false) {
+                $parts = explode('=', $line, 2);
+                $key = trim($parts[0]);
+                $value = trim($parts[1], " \t\n\r\0\x0B\"'");
+                putenv("$key=$value");
+                $_ENV[$key] = $value;
+            }
+        }
+    }
 }
 
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/auth_helper.php';
+// Load environment variables
+load_env_direct(__DIR__ . '/.env');
+load_env_direct(__DIR__ . '/../.env');
 
-if (!isset($conn) || $conn->connect_error) {
+// Aiven Cloud database configuration parameters
+$DB_HOST = getenv('DB_HOST')     ?: ($_ENV['DB_HOST']     ?? 'foodmonster-foodmonster2077.l.aivencloud.com');
+$DB_PORT = (int)(getenv('DB_PORT') ?: ($_ENV['DB_PORT']    ?? 27243));
+$DB_NAME = getenv('DB_DATABASE') ?: ($_ENV['DB_DATABASE'] ?? 'little_duckling_db');
+$DB_USER = getenv('DB_USERNAME') ?: ($_ENV['DB_USERNAME'] ?? 'avnadmin');
+$DB_PASS = getenv('DB_PASSWORD') ?: ($_ENV['DB_PASSWORD'] ?? 'AVNS_zm11DvJhdhSKo24pyuy');
+
+// CRITICAL: Initialize both variables as null first so they are never "Undefined"
+$pdo = null;
+$conn = null;
+
+try {
+    // 1. PDO Connection Setup
+    $pdo_options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::MYSQL_ATTR_SSL_CA       => true, 
+        PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false 
+    ];
+    $pdo = new PDO("mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, $pdo_options);
+    
+    // 2. MySQLi Connection Setup
+    mysqli_report(MYSQLI_REPORT_OFF);
+    $conn = mysqli_init();
+    $conn->ssl_set(NULL, NULL, NULL, NULL, NULL); 
+    
+    if (!$conn->real_connect($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $DB_PORT, NULL, MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT)) {
+        throw new Exception("MySQLi Connect Error: " . $conn->connect_error);
+    }
+    $conn->set_charset("utf8mb4");
+
+} catch (Throwable $e) {
+    header("Content-Type: application/json; charset=UTF-8");
     http_response_code(500);
-    echo json_encode(["success" => false, "message" => "Database connection failed"]);
-    exit();
+    echo json_encode([
+        "success" => false,
+        "message" => "Database Connection Failed",
+        "error" => $e->getMessage()
+    ]);
+    exit;
 }
-
-$data = json_decode(file_get_contents("php://input"), true);
-if (!is_array($data)) {
-    $data = [];
-}
-
-$name     = isset($data['name']) ? trim((string)$data['name']) : '';
-$phone    = isset($data['phone']) ? trim((string)$data['phone']) : '';
-$password = $data['user_password'] ?? $data['password'] ?? '';
-$password = (string)$password;
-
-if ($name === '' || $phone === '' || $password === '') {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "សូមបំពេញឈ្មោះ លេខទូរស័ព្ទ និងលេខកូដសម្ងាត់"]);
-    exit();
-}
-
-if (strlen($password) < 6) {
-    http_response_code(400);
-    echo json_encode(["success" => false, "message" => "លេខកូដសម្ងាត់ត្រូវមានយ៉ាងតិច 6 តួអក្សរ"]);
-    exit();
-}
-
-$checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ? LIMIT 1");
-$checkStmt->bind_param("s", $phone);
-$checkStmt->execute();
-$checkResult = $checkStmt->get_result();
-if ($checkResult->fetch_assoc()) {
-    $checkStmt->close();
-    http_response_code(409);
-    echo json_encode(["success" => false, "message" => "លេខទូរស័ព្ទនេះមានគណនីរួចហើយ"]);
-    exit();
-}
-$checkStmt->close();
-
-$passwordHash = password_hash($password, PASSWORD_BCRYPT);
-
-$insertStmt = $conn->prepare(
-    "INSERT INTO users (name, phone, password, role, type, status, created_at, updated_at)
-     VALUES (?, ?, ?, 'user', NULL, 'ACTIVE', NOW(), NOW())"
-);
-$insertStmt->bind_param("sss", $name, $phone, $passwordHash);
-
-if (!$insertStmt->execute()) {
-    $insertStmt->close();
-    http_response_code(500);
-    echo json_encode(["success" => false, "message" => "ការចុះឈ្មោះមិនជោគជ័យទេ សូមព្យាយាមម្តងទៀត"]);
-    exit();
-}
-
-$newUserId = $insertStmt->insert_id;
-$insertStmt->close();
-
-$token = issue_auth_token($conn, (int)$newUserId);
-
-echo json_encode([
-    "success" => true,
-    "message" => "Success",
-    "token" => $token,
-    "user" => [
-        "id" => (int)$newUserId,
-        "name" => $name,
-        "phone" => $phone,
-    ]
-]);
-
-$conn->close();
