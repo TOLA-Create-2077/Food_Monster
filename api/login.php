@@ -1,19 +1,14 @@
 <?php
-/**
- * login.php
- * ផ្ទៀងផ្ទាត់គណនីប្រើប្រាស់សម្រាប់ Mobile App និង Web
- */
-
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
     exit(0);
 }
 
-// ភ្ជាប់ទៅកាន់ការកំណត់ Database របស់ Aiven Cloud
 require_once __DIR__ . '/config.php';
 
 if (!isset($conn) || $conn->connect_error) {
@@ -23,17 +18,20 @@ if (!isset($conn) || $conn->connect_error) {
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-// 🛠️ ដំណោះស្រាយ៖ គាំទ្រទាំងការប្រើប្រាស់ លេខទូរស័ព្ទ (Phone) ឬ អុីម៉ែល (Email)
 $phone = isset($data['phone']) ? trim($data['phone']) : '';
-$password = isset($data['password']) ? $data['password'] : '';
+$password = isset($data['user_password']) ? $data['user_password'] : '';
 
 if (empty($phone) || empty($password)) {
-    echo json_encode(["success" => false, "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ/អុីម៉ែល និងលេខកូដសម្ងាត់"]);
+    echo json_encode(["success" => false, "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ និងលេខកូដសម្ងាត់"]);
     exit();
 }
 
-// ទាញយកទិន្នន័យអ្នកប្រើប្រាស់មកផ្ទៀងផ្ទាត់ (គាំទ្រទាំងការឆែកតាម phone នៅក្នុង DB)
-$stmt = $conn->prepare("SELECT id, name, phone, password FROM users WHERE phone = ? LIMIT 1");
+$stmt = $conn->prepare(
+    "SELECT id, name, email, phone, address, profile, password
+     FROM users
+     WHERE phone = ? AND type = 'user' AND deleted_at IS NULL
+     LIMIT 1"
+);
 if (!$stmt) {
     echo json_encode(["success" => false, "message" => "SQL Statement preparation failure"]);
     exit();
@@ -44,8 +42,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($row = $result->fetch_assoc()) {
-    // ផ្ទៀងផ្ទាត់លេខកូដសម្ងាត់ Hash ជាមួយ Password ធម្មតា
-    if (password_verify($password, $row['password'])) {
+    if (!empty($row['password']) && password_verify($password, $row['password'])) {
         echo json_encode([
             "success" => true,
             "message" => "Success",
@@ -65,4 +62,3 @@ if ($row = $result->fetch_assoc()) {
 
 $stmt->close();
 $conn->close();
-?>

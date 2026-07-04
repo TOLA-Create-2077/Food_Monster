@@ -3,18 +3,13 @@
  * config.php
  * Central database connection for Aiven Cloud (guarantees both $pdo and $conn exist)
  *
- * Accepts EITHER naming convention for env vars, since this repo mixes a
- * Laravel app (config/database.php, which typically uses DB_DATABASE /
- * DB_USERNAME / DB_PASSWORD) with these standalone api/*.php scripts:
- *   DB_HOST powers both
- *   DB_PORT powers both
+ * Accepts EITHER naming convention for env vars:
+ *   DB_HOST, DB_PORT
  *   DB_NAME       or DB_DATABASE
  *   DB_USER       or DB_USERNAME
  *   DB_PASS       or DB_PASSWORD
  *
- * No hardcoded credential fallback — if nothing is set under either name,
- * this fails loudly with a clear message instead of silently using a
- * baked-in secret (which is what caused the original credential leak).
+ * No hardcoded credential fallback.
  */
 
 ini_set('display_errors', '0');
@@ -42,7 +37,6 @@ if (!function_exists('load_env_direct')) {
     }
 }
 
-// Load .env only as a local-dev convenience; Railway injects real env vars directly.
 load_env_direct(__DIR__ . '/.env');
 load_env_direct(__DIR__ . '/../.env');
 
@@ -78,7 +72,6 @@ $DB_PORT = (int) required_env_any(['DB_PORT']);
 $DB_NAME = required_env_any(['DB_NAME', 'DB_DATABASE']);
 $DB_USER = required_env_any(['DB_USER', 'DB_USERNAME']);
 $DB_PASS = required_env_any(['DB_PASS', 'DB_PASSWORD']);
-
 
 $pdo = null;
 $conn = null;
