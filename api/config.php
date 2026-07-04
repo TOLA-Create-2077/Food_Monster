@@ -1,17 +1,4 @@
 <?php
-/**
- * config.php
- * Central database connection for Aiven Cloud (guarantees both $pdo and $conn exist)
- *
- * Accepts EITHER naming convention for env vars:
- *   DB_HOST, DB_PORT
- *   DB_NAME       or DB_DATABASE
- *   DB_USER       or DB_USERNAME
- *   DB_PASS       or DB_PASSWORD
- *
- * No hardcoded credential fallback.
- */
-
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
@@ -26,12 +13,8 @@ if (!function_exists('load_env_direct')) {
                 [$key, $value] = explode('=', $line, 2);
                 $key = trim($key);
                 $value = trim($value, " \t\n\r\0\x0B\"'");
-                if (getenv($key) === false) {
-                    putenv("$key=$value");
-                }
-                if (!isset($_ENV[$key])) {
-                    $_ENV[$key] = $value;
-                }
+                if (getenv($key) === false) putenv("$key=$value");
+                if (!isset($_ENV[$key])) $_ENV[$key] = $value;
             }
         }
     }
@@ -43,12 +26,8 @@ load_env_direct(__DIR__ . '/../.env');
 function env_any(array $keys): ?string {
     foreach ($keys as $key) {
         $value = getenv($key);
-        if ($value === false || $value === '') {
-            $value = $_ENV[$key] ?? null;
-        }
-        if ($value !== null && $value !== '') {
-            return (string)$value;
-        }
+        if ($value === false || $value === '') $value = $_ENV[$key] ?? null;
+        if ($value !== null && $value !== '') return (string)$value;
     }
     return null;
 }
@@ -85,9 +64,7 @@ try {
     ];
     $pdo = new PDO(
         "mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4",
-        $DB_USER,
-        $DB_PASS,
-        $pdo_options
+        $DB_USER, $DB_PASS, $pdo_options
     );
 
     mysqli_report(MYSQLI_REPORT_OFF);
@@ -103,9 +80,6 @@ try {
     header("Content-Type: application/json; charset=UTF-8");
     http_response_code(500);
     error_log("DB connection failure: " . $e->getMessage());
-    echo json_encode([
-        "success" => false,
-        "message" => "Database connection failed",
-    ]);
+    echo json_encode(["success" => false, "message" => "Database connection failed"]);
     exit;
 }

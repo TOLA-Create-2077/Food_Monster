@@ -32,13 +32,7 @@ if (strlen($password) < 6) {
     exit();
 }
 
-$checkStmt = $conn->prepare(
-    "SELECT id FROM users WHERE phone = ? AND deleted_at IS NULL LIMIT 1"
-);
-if (!$checkStmt) {
-    echo json_encode(["success" => false, "message" => "SQL Statement preparation failure"]);
-    exit();
-}
+$checkStmt = $conn->prepare("SELECT id FROM users WHERE phone = ? AND deleted_at IS NULL LIMIT 1");
 $checkStmt->bind_param("s", $phone);
 $checkStmt->execute();
 $checkResult = $checkStmt->get_result();
@@ -57,21 +51,13 @@ $insertStmt = $conn->prepare(
     "INSERT INTO users (name, phone, password, type, status, default_language, created_at, updated_at)
      VALUES (?, ?, ?, 'user', 'ACTIVE', 'en', NOW(), NOW())"
 );
-if (!$insertStmt) {
-    echo json_encode(["success" => false, "message" => "SQL Statement preparation failure"]);
-    exit();
-}
 $insertStmt->bind_param("sss", $name, $phone, $hashedPassword);
 
 if ($insertStmt->execute()) {
     echo json_encode([
         "success" => true,
         "message" => "ចុះឈ្មោះជោគជ័យ",
-        "user" => [
-            "id" => $insertStmt->insert_id,
-            "name" => $name,
-            "phone" => $phone
-        ]
+        "user" => ["id" => $insertStmt->insert_id, "name" => $name, "phone" => $phone]
     ]);
 } else {
     echo json_encode(["success" => false, "message" => "ការចុះឈ្មោះមិនជោគជ័យទេ"]);

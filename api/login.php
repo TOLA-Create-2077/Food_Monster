@@ -16,13 +16,24 @@ if (!isset($conn) || $conn->connect_error) {
     exit();
 }
 
-$data = json_decode(file_get_contents("php://input"), true);
+$raw = file_get_contents("php://input");
+$data = json_decode($raw, true);
 
 $phone = isset($data['phone']) ? trim($data['phone']) : '';
 $password = isset($data['user_password']) ? $data['user_password'] : '';
 
 if (empty($phone) || empty($password)) {
-    echo json_encode(["success" => false, "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ និងលេខកូដសម្ងាត់"]);
+    // DEBUG: remove this "debug" key once things work — shows exactly what arrived
+    echo json_encode([
+        "success" => false,
+        "message" => "សូមបញ្ចូលលេខទូរស័ព្ទ និងលេខកូដសម្ងាត់",
+        "debug" => [
+            "raw_body_received" => $raw,
+            "json_decode_error" => json_last_error_msg(),
+            "parsed_phone" => $phone,
+            "parsed_password_present" => !empty($password)
+        ]
+    ]);
     exit();
 }
 
