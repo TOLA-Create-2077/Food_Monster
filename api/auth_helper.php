@@ -1,7 +1,7 @@
 <?php
 /**
  * auth_helper.php
- * Extracts bearer sessions and executes verified hash matching against the database.
+ * Session Authentication Engine: Issues and cryptographically matches secure authorization vectors.
  */
 
 function issue_auth_token(mysqli $conn, int $userId): string {
@@ -32,8 +32,7 @@ function get_authenticated_user(mysqli $conn): ?array {
 
     $tokenHash = hash('sha256', $rawToken);
 
-    // Queries status column values according to your database schema logic
-    $stmt = $conn->prepare("SELECT id, name, phone, email, type, status FROM users WHERE remember_token = ? AND status = 'ACTIVE' LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, name, phone, email, status FROM users WHERE remember_token = ? AND status = 'ACTIVE' LIMIT 1");
     if (!$stmt) {
         return null;
     }

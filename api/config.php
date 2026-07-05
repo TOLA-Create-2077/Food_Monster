@@ -1,9 +1,13 @@
 <?php
+/**
+ * config.php
+ * Unified Production Connectivity Layer & CORS Configuration Profile.
+ */
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -48,7 +52,7 @@ function required_env_any(array $keys): string {
         header("Content-Type: application/json; charset=UTF-8");
         echo json_encode([
             "success" => false, 
-            "message" => "Server configuration error: Missing connection keys."
+            "message" => "Server misconfigured: missing database connection environment keys."
         ]);
         exit;
     }
@@ -64,13 +68,15 @@ $DB_PASS = required_env_any(['DB_PASS', 'DB_PASSWORD']);
 mysqli_report(MYSQLI_REPORT_OFF);
 $conn = mysqli_init();
 
-// For secure Aiven installations, ensure TLS validation flags match host configuration
+// Configure SSL connectivity support requested for remote database targets (e.g. Aiven/Railway Clusters)
+$conn->ssl_set(NULL, NULL, NULL, NULL, NULL);
+
 if (!$conn->real_connect($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $DB_PORT, NULL, MYSQLI_CLIENT_SSL)) {
     http_response_code(500);
     header("Content-Type: application/json; charset=UTF-8");
     echo json_encode([
         "success" => false,
-        "message" => "Critical error: Database connectivity could not be established."
+        "message" => "Database connection engine failed to execute."
     ]);
     exit;
 }

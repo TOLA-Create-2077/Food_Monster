@@ -1,24 +1,20 @@
 <?php
+/**
+ * get_user_orders.php
+ * Secure Route: Extracts identity from Bearer token to prevent cross-account history parameter scraping attacks.
+ */
 header("Content-Type: application/json; charset=UTF-8");
-
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth_helper.php';
 
 $user = get_authenticated_user($conn);
 if (!$user) {
     http_response_code(401);
-    echo json_encode(["success" => false, "message" => "Access denied. Credentials invalid."]);
+    echo json_encode(["success" => false, "message" => "Unauthorized connection request access block."]);
     exit();
 }
 
-// Maps directly to the schema's 'customer_id' foreign relation key safely
-$stmt = $conn->prepare("SELECT * FROM `orders` WHERE customer_id = ? ORDER BY id DESC");
-if (!$stmt) {
-    http_response_code(500);
-    echo json_encode(["success" => false, "message" => "Internal processing fault."]);
-    exit();
-}
-
+$stmt = $conn->prepare("SELECT id, code, customer_id, delivery_fee, sub_total, grand_total, order_date, status, payment_type FROM `orders` WHERE customer_id = ? ORDER BY id DESC");
 $stmt->bind_param("i", $user['id']);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -38,5 +34,9 @@ while ($row = $result->fetch_assoc()) {
     ];
 }
 
-echo json_encode(["success" => true, "data" => $orders]);
+echo json_encode([
+    "success" => true,
+    "message" => "Orders fetched successfully",
+    "data" => $orders
+]);
 $stmt->close();

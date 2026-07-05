@@ -1,6 +1,9 @@
 <?php
+/**
+ * login.php
+ * Verifies active credentials using native password hashing and returns token profiles.
+ */
 header("Content-Type: application/json; charset=UTF-8");
-
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth_helper.php';
 
@@ -18,10 +21,10 @@ if (empty($phone) || empty($password)) {
     exit();
 }
 
-$stmt = $conn->prepare("SELECT id, name, email, phone, status, password FROM users WHERE phone = ? AND status = 'ACTIVE' LIMIT 1");
+$stmt = $conn->prepare("SELECT id, name, email, phone, password FROM users WHERE phone = ? AND type = 'user' AND status = 'ACTIVE' LIMIT 1");
 if (!$stmt) {
     http_response_code(500);
-    echo json_encode(["success" => false, "message" => "System execution failure."]);
+    echo json_encode(["success" => false, "message" => "SQL Execution Engine processing failure."]);
     exit();
 }
 
@@ -37,12 +40,14 @@ if ($row = $result->fetch_assoc()) {
         echo json_encode([
             "success" => true,
             "message" => "Success",
-            "token" => $sessionToken,
-            "user" => [
-                "id" => (int)$row['id'],
-                "name" => $row['name'],
-                "phone" => $row['phone'],
-                "email" => $row['email']
+            "data" => [
+                "token" => $sessionToken,
+                "user" => [
+                    "id" => (int)$row['id'],
+                    "name" => $row['name'],
+                    "phone" => $row['phone'],
+                    "email" => $row['email'] ?? ""
+                ]
             ]
         ]);
         $stmt->close();
